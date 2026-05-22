@@ -33,7 +33,7 @@
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
             toast.className = `toast ${tipo}`;
-            toast.innerHTML = message;
+            toast.innerHTML = mensagem;
             
             container.appendChild(toast);
             
@@ -120,6 +120,7 @@
                 btnSubmit.innerHTML = "+ CADASTRAR NO SISTEMA";
                 window.mostrarAviso("✅ Produto cadastrado com sucesso!", "sucesso");
                 
+                // Redireciona o usuário de volta para a aba de estoque após salvar
                 mudarAba('estoque', document.querySelector('.tab-btn:first-child'));
                 window.carregarDados();
             } catch (e) { 
@@ -263,7 +264,7 @@
 
                 window.idsContagem.push(item.id);
 
-                // ABA 1: ESTOQUE (EXIBE O MÍNIMO ATUAL E ATUALIZA VIA FORM INLINE)
+                // ABA 1: ESTOQUE (COM MINI FORM DE FÁCIL ACESSO PARA VALOR, MINIMO E VALIDADE)
                 listaInsumos.innerHTML += `
                     <div class="card-item ${critico ? 'critico' : ''}">
                         <div class="card-main-row">
@@ -284,7 +285,7 @@
                         <div class="edit-panel" id="edit-panel-${item.id}" style="display:none;">
                             <div class="edit-grid">
                                 <div>
-                                    <label>Custo (R$)</label>
+                                    <label>Custo Unit. (R$)</label>
                                     <input type="number" step="0.01" id="edit-valor-${item.id}" value="${item.valor || 0}">
                                 </div>
                                 <div>
@@ -301,12 +302,13 @@
                     </div>
                 `;
 
-                // ABA 2: COMPRAS
+                // ABA 2: COMPRAS (CÁLCULO AUTOMÁTICO DA QUANTIDADE QUE FALTA)
                 if(critico) {
                     itensParaComprar.push(item);
+                    const faltam = item.minimo - item.atual;
                     listaCompras.innerHTML += `
                         <div class="card-compra">
-                            <span><b>${item.nome}</b> (${item.categoria}) precisa de reposição!</span>
+                            <span><b>${item.nome}</b> (${item.categoria}) | Faltam: <b>${faltam} ${item.unidade}</b> para o mínimo</span>
                         </div>
                     `;
                 }
@@ -348,7 +350,12 @@
                 }
 
                 let msg = `*📋 SOLICITAÇÃO DE MERCADORIA - SEO PACHECO*\n\n`;
-                filtrados.forEach(i => msg += `• ${i.nome}\n`);
+                
+                // NOVO: Adiciona o cálculo de quantidade diretamente no texto enviado pelo WhatsApp
+                filtrados.forEach(i => {
+                    const faltamNoZap = i.minimo - i.atual;
+                    msg += `• ${i.nome} (Pedir: ${faltamNoZap} ${i.unidade})\n`;
+                });
                 
                 let linkZap = telefone 
                     ? `https://api.whatsapp.com/send?phone=${telefone}&text=${encodeURIComponent(msg)}`
