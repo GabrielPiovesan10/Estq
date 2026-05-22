@@ -302,13 +302,14 @@
                     </div>
                 `;
 
-                // ABA 2: COMPRAS (CÁLCULO AUTOMÁTICO DA QUANTIDADE QUE FALTA)
+                // ABA 2: COMPRAS (CÁLCULO AUTOMÁTICO PARA ABASTECER ATÉ O ESTOQUE IDEAL = 2X O MÍNIMO)
                 if(critico) {
                     itensParaComprar.push(item);
-                    const faltam = item.minimo - item.atual;
+                    const estoqueIdeal = item.minimo * 2;
+                    const faltam = estoqueIdeal - item.atual;
                     listaCompras.innerHTML += `
                         <div class="card-compra">
-                            <span><b>${item.nome}</b> (${item.categoria}) | Faltam: <b>${faltam} ${item.unidade}</b> para o mínimo</span>
+                            <span><b>${item.nome}</b> (${item.categoria}) | Sugestão de Compra: <b>${faltam} ${item.unidade}</b></span>
                         </div>
                     `;
                 }
@@ -351,9 +352,10 @@
 
                 let msg = `*📋 SOLICITAÇÃO DE MERCADORIA - SEO PACHECO*\n\n`;
                 
-                // NOVO FORMATO PREMIUM: "• Nome do Produto - 15 UN"
+                // LÓGICA DE COMPRA INTELIGENTE NO ZAP: Abastece até o dobro do mínimo para dar folga
                 filtrados.forEach(i => {
-                    const faltamNoZap = i.minimo - i.atual;
+                    const estoqueIdealNoZap = i.minimo * 2;
+                    const faltamNoZap = estoqueIdealNoZap - i.atual;
                     msg += `• ${i.nome} - ${faltamNoZap} ${i.unidade}\n`;
                 });
                 
@@ -605,4 +607,3 @@
     </script>
 </body>
 </html>
-
