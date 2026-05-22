@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gestão GP Tech PRO - Deck Churrascaria</title>
+    <title>Gestão GP Tech PRO - Seo Pacheco</title>
 
     <script type="module">
 
@@ -24,6 +24,25 @@
             return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         }
 
+        // SISTEMA DE NOTIFICAÇÃO PREMIUM (SUBSTITUTO DO ALERT FEIO)
+        window.mostrarAviso = function(mensagem, tipo = 'aviso') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${tipo}`;
+            toast.innerHTML = mensagem;
+            
+            container.appendChild(toast);
+            
+            // Trigger da animação de entrada
+            setTimeout(() => { toast.classList.add('show'); }, 50);
+            
+            // Remove automaticamente após 3 segundos
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => { toast.remove(); }, 400);
+            }, 3000);
+        };
+
         // TRAVA DE SEGURANÇA COM TELA DE LOGIN PERSONALIZADA
         window.verificarAcesso = async function() {
             if (localStorage.getItem('gptech_logado') === 'true') {
@@ -31,7 +50,6 @@
                 window.carregarDados();
                 return;
             }
-            // Se não estiver logado, a tela de login continua visível bloqueando o app
         };
 
         // FUNÇÃO EXECUTADA AO CLICAR EM ENTRAR NO LOGIN
@@ -45,7 +63,6 @@
                 return;
             }
 
-          
             const hashCorreto = "6960db618961d03b5b0c8a08acd77b63599d24fb272cdc29fdbac636c53812f5";
             const hashDigitado = await gerarHash(inputSenha);
 
@@ -68,22 +85,23 @@
                 window.renderizarSistemas();
             } catch (e) {
                 console.error("Erro ao carregar dados da planilha:", e);
+                window.mostrarAviso("❌ Erro ao conectar com o banco de dados.", "erro");
             }
         };
 
         // 1. ADICIONAR INSUMO NA PLANILHA
         window.adicionarInsumo = async function() {
             const nome = document.getElementById('nome').value;
-            const tabular = Number(document.getElementById('qtd-atual').value); // mantido original
             const atual = Number(document.getElementById('qtd-atual').value);
             const minimo = Number(document.getElementById('qtd-minima').value);
-            const unidadedialog = document.getElementById('unidade').value; // mantém compatibilidade se necessário
             const unidade = document.getElementById('unidade').value;
             const categoria = document.getElementById('categoria').value;
             const valor = Number(document.getElementById('valor-unitario').value);
             const validade = document.getElementById('validade').value;
 
-            if(!nome || !unidade || !categoria) return alert("Preencha os campos obrigatórios!");
+            if(!nome || !unidade || !categoria) {
+                return window.mostrarAviso("⚠️ Preencha os campos obrigatórios!", "erro");
+            }
 
             const btnSubmit = document.querySelector('button[type="submit"]');
             btnSubmit.innerHTML = "⏳ Salvando...";
@@ -91,15 +109,17 @@
             try {
                 await fetch(URL_PLANILHA, {
                     method: 'POST',
-                    mode: 'no-cors', // Evita bloqueio de CORS no redirecionamento do Google
+                    mode: 'no-cors',
                     body: JSON.stringify({ action: 'add', nome, atual, minimo, unidade, categoria, valor, validade })
                 });
                 document.getElementById('form-insumo').reset();
-                btnSubmit.innerHTML = "+ CADASTRAR NO SISTEMA"; // Corrigido para bater com seu HTML
-                window.carregarDados(); // Recarrega a lista
+                btnSubmit.innerHTML = "+ CADASTRAR NO SISTEMA";
+                window.mostrarAviso("✅ Produto cadastrado com sucesso!", "sucesso");
+                window.carregarDados();
             } catch (e) { 
                 console.error(e); 
                 btnSubmit.innerHTML = "+ CADASTRAR NO SISTEMA";
+                window.mostrarAviso("❌ Falha ao cadastrar item.", "erro");
             }
         };
 
@@ -108,7 +128,6 @@
             const novoValor = atual + valor;
             if(novoValor < 0) return;
 
-            // Atualiza rápido na tela (Visual Dinâmico)
             const index = window.insumosDados.findIndex(item => item.id === id);
             if(index !== -1) {
                 window.insumosDados[index].atual = novoValor;
@@ -126,23 +145,7 @@
             }
         };
 
-        // 3. DELETAR INSUMO
-        window.deletarInsumo = async function(id) {
-            if(confirm("Excluir este insumo permanentemente?")) {
-                try {
-                    await fetch(URL_PLANILHA, {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        body: JSON.stringify({ action: 'delete', id })
-                    });
-                    window.carregarDados();
-                } catch (e) {
-                    console.error(e);
-                }
-            }
-        };
-
-        // 4. FINALIZAR CONTAGEM (AUDITORIA)
+        // 3. FINALIZAR CONTAGEM (AUDITORIA)
         window.salvarContagem = async function(btn) {
             btn.innerHTML = "⏳ Salvando...";
             let atualizacoes = [];
@@ -160,13 +163,14 @@
                     mode: 'no-cors',
                     body: JSON.stringify({ action: 'bulkUpdate', dados: atualizacoes })
                 });
-                alert("✅ Contagem finalizada com sucesso!");
+                window.mostrarAviso("🚀 Contagem real sincronizada com sucesso!", "sucesso");
                 btn.innerHTML = "💾 FINALIZAR CONTAGEM";
                 mudarAba('estoque', document.querySelector('.tab-btn:first-child'));
                 window.carregarDados();
             } catch (e) {
                 console.error(e);
                 btn.innerHTML = "💾 FINALIZAR CONTAGEM";
+                window.mostrarAviso("❌ Erro ao salvar contagem.", "erro");
             }
         };
 
@@ -189,15 +193,12 @@
             window.insumosDados.forEach((item) => {
                 const critico = item.atual <= item.minimo;
                 
-                // Acumula valor total do estoque real completo (independente da busca)
                 totalFinanceiro += (item.atual * (item.valor || 0));
 
-                // Filtro de pesquisa por nome ou categoria
                 if (termoBusca && !item.nome.toLowerCase().includes(termoBusca) && !item.categoria.toLowerCase().includes(termoBusca)) {
                     return; 
                 }
 
-                // Alerta de Validade
                 let alertaValidade = "";
                 if(item.validade) {
                     const hoje = new Date();
@@ -210,26 +211,25 @@
 
                 window.idsContagem.push(item.id);
 
-                // ABA 1: ESTOQUE
+                // ABA 1: ESTOQUE (LIXEIRA REMOVIDA DAQUI)
                 listaInsumos.innerHTML += `
                     <div class="card-item ${critico ? 'critico' : ''}">
                         <div class="info">
                             <span class="categoria-tag">${item.categoria}</span>
                             <span class="nome">${item.nome} ${alertaValidade}</span>
                             <span class="detalhe">${item.atual} ${item.unidade} | Custo: R$ ${(item.valor || 0).toFixed(2)}</span>
-                            <span class="detalhe subtotal-cor">Subtotal: R$ ${(item.atual * (item.valor || 0).toFixed(2))}</span>
+                            <span class="detalhe subtotal-cor">Subtotal: R$ ${(item.atual * (item.valor || 0)).toFixed(2)}</span>
                         </div>
                         <div class="controles">
                             <button onclick="alterarEstoque('${item.id}', ${item.atual}, -1)">-</button>
                             <button onclick="alterarEstoque('${item.id}', ${item.atual}, 1)">+</button>
-                            <button class="btn-del" onclick="deletarInsumo('${item.id}')">🗑️</button>
                         </div>
                     </div>
                 `;
 
                 // ABA 2: COMPRAS
                 if(critico) {
-                    itensParaComprar.push(item); // Mantém o objeto completo para filtragem inteligente
+                    itensParaComprar.push(item);
                     listaCompras.innerHTML += `
                         <div class="card-compra">
                             <span><b>${item.nome}</b> (${item.categoria}) precisa de reposição!</span>
@@ -254,32 +254,26 @@
             resumoFinanceiro.innerHTML = `R$ ${totalFinanceiro.toFixed(2)}`;
 
             window.enviarListaZap = function(tipo) {
-                if(itensParaComprar.length === 0) return alert("Estoque em dia!");
+                if(itensParaComprar.length === 0) {
+                    return window.mostrarAviso("📦 O estoque está 100% em dia!", "sucesso");
+                }
                 
                 let filtrados = [];
                 let telefone = ""; 
 
-                if (tipo === 'piracicaba') {
-                    filtrados = itensParaComprar.filter(i => i.categoria === 'Piracicaba');
-                } 
-                else if (tipo === 'chico') {
-                    filtrados = itensParaComprar.filter(i => i.categoria === 'Chico');
-                } 
-                else if (tipo === 'ambev') {
-                    filtrados = itensParaComprar.filter(i => i.categoria === 'Ambev');
-                } 
-                else if (tipo === 'coca') {
-                    filtrados = itensParaComprar.filter(i => i.categoria === 'Coca-Cola');
-                }
-                else if (tipo === 'deck') {
-                    filtrados = itensParaComprar.filter(i => i.categoria === 'Deck');
-                }
+                if (tipo === 'piracicaba') filtrados = itensParaComprar.filter(i => i.categoria === 'Piracicaba');
+                else if (tipo === 'chico') filtrados = itensParaComprar.filter(i => i.categoria === 'Chico');
+                else if (tipo === 'ambev') filtrados = itensParaComprar.filter(i => i.categoria === 'Ambev');
+                else if (tipo === 'coca') filtrados = itensParaComprar.filter(i => i.categoria === 'Coca-Cola');
+                else if (tipo === 'deck') filtrados = itensParaComprar.filter(i => i.categoria === 'Deck');
 
-                if(filtrados.length === 0) return alert("Nenhum item pendente para este fornecedor!");
+                if(filtrados.length === 0) {
+                    return window.mostrarAviso("⚠️ Nenhum item crítico encontrado para este fornecedor.", "aviso");
+                }
 
                 let msg = `*📋 SOLICITAÇÃO DE MERCADORIA - SEO PACHECO*\n\n`;
                 filtrados.forEach(i => msg += `• ${i.nome} (${i.atual} ${i.unidade} restando)\n`);
-                msg += `\n_Gerado via Sistema GP Tech_`;
+            
                 
                 let linkZap = telefone 
                     ? `https://api.whatsapp.com/send?phone=${telefone}&text=${encodeURIComponent(msg)}`
@@ -289,7 +283,6 @@
             };
         };
 
-        // Inicializa chamando a validação de segurança antes de abrir o app
         window.onload = () => {
             window.verificarAcesso();
         };
@@ -299,7 +292,15 @@
         :root { --laranja: #fb8c00; --laranja-escuro: #e65100; --vermelho: #d32f2f; --azul: #0284c7; --fundo: #f1f5f9; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--fundo); margin: 0; padding-bottom: 50px; color: #1e293b; }
         
-        /* ESTILOS DA TELA DE LOGIN PREMIUM */
+        /* CONTAINER DE TOASTS PREMIUM */
+        #toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 100000; width: 90%; max-width: 400px; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+        .toast { background: white; padding: 15px 20px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.12); font-weight: bold; font-size: 13px; color: #1e293b; pointer-events: auto; transform: translateY(-30px); opacity: 0; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.25); border-left: 6px solid var(--azul); display: flex; align-items: center; }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast.sucesso { border-left-color: #25D366; }
+        .toast.erro { border-left-color: var(--vermelho); }
+        .toast.aviso { border-left-color: var(--laranja); }
+
+        /* LOGIN SCREEN */
         #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); display: flex; align-items: center; justify-content: center; z-index: 99999; padding: 20px; box-sizing: border-box; }
         .login-card { background: white; padding: 35px 25px; border-radius: 25px; box-shadow: 0 15px 35px rgba(0,0,0,0.08); width: 100%; max-width: 360px; text-align: center; border-top: 6px solid var(--laranja); }
         .login-brand { font-size: 11px; font-weight: 900; color: var(--laranja); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 5px; }
@@ -319,7 +320,6 @@
         .tab-btn { flex: 1; padding: 12px; border: none; border-radius: 12px; background: transparent; font-weight: bold; font-size: 12px; cursor: pointer; color: #64748b; }
         .tab-btn.active { background: var(--laranja); color: white; }
 
-        /* Barra de Busca */
         .busca-container { margin-bottom: 15px; }
         .busca-input { width: 100%; padding: 14px; border: 1.5px solid #e2e8f0; border-radius: 15px; box-sizing: border-box; font-size: 14px; outline: none; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.02); }
         .busca-input:focus { border-color: var(--laranja); }
@@ -331,7 +331,6 @@
         
         .btn-add { background: var(--laranja); color: white; border: none; width: 100%; padding: 16px; border-radius: 15px; font-weight: 900; cursor: pointer; }
         .btn-zap { background: #25D366; }
-        .btn-azul { background: var(--azul); }
 
         /* Cards do Estoque */
         .card-item { background: white; padding: 15px; border-radius: 15px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border-left: 6px solid #e2e8f0; transition: all 0.2s ease; }
@@ -343,7 +342,6 @@
         .card-item.critico .subtotal-cor { color: #ffe4e6 !important; font-weight: bold; }
         .card-item.critico .categoria-tag { background: rgba(255, 255, 255, 0.2) !important; color: white !important; }
         .card-item.critico .controles button { background: rgba(255, 255, 255, 0.2); color: white; border: none; }
-        .card-item.critico .btn-del { background: rgba(0, 0, 0, 0.2) !important; color: white !important; }
         .card-item.critico .controles-contagem input { background: rgba(255, 255, 255, 0.2) !important; color: white !important; }
 
         .categoria-tag { font-size: 9px; background: #f1f5f9; padding: 2px 8px; border-radius: 5px; color: #64748b; font-weight: bold; text-transform: uppercase; }
@@ -353,11 +351,10 @@
         
         .badge-venc { font-size: 9px; background: var(--vermelho); color: white; padding: 2px 6px; border-radius: 4px; margin-left: 5px; vertical-align: middle; }
 
-        .controles button { padding: 10px 15px; border: none; border-radius: 10px; background: #f8fafc; font-weight: bold; cursor: pointer; border: 1px solid #f1f5f9; }
-        .btn-del { background: #fee2e2 !important; color: var(--vermelho); border: none !important; }
+        .controles { display: flex; gap: 5px; }
+        .controles button { padding: 10px 18px; border: none; border-radius: 10px; background: #f8fafc; font-weight: bold; font-size: 16px; cursor: pointer; border: 1px solid #f1f5f9; }
 
         .controles-contagem input { width: 80px; text-align: center; margin: 0; padding: 10px; font-weight: bold; background: #f1f5f9; border: none; border-radius: 8px; }
-
         .card-compra { background: #fff8e1; border: 1px dashed #ffa000; padding: 12px; border-radius: 10px; margin-bottom: 8px; font-size: 13px; }
 
         .aba-content { display: none; }
@@ -366,6 +363,8 @@
     </style>
 </head>
 <body>
+
+    <div id="toast-container"></div>
 
     <div id="login-screen">
         <div class="login-card">
@@ -376,9 +375,7 @@
             <form onsubmit="event.preventDefault(); window.fazerLogin();">
                 <label style="margin-left:0; display:block; text-align:left;">Digite a Senha</label>
                 <input type="password" id="senha-input" placeholder="••••••••" style="margin-bottom:5px; text-align:center;" required autofocus>
-                
                 <div id="login-error" class="login-error-field"></div>
-                
                 <button type="submit" class="btn-login">ENTRAR NO SISTEMA</button>
             </form>
         </div>
@@ -472,11 +469,11 @@
                 <h2 style="font-size:16px; color:var(--vermelho); margin-top:0;">ITENS PARA REPOSIÇÃO</h2>
                 <div id="render-compras" style="margin-bottom:25px;"></div>
                 
-                <button class="btn-add btn-zap" onclick="enviarListaZap('deck')" style="margin-bottom: 10px; background: #fb8c00;">🔥 PEDIR NO DECK</button>
-                <button class="btn-add btn-zap" onclick="enviarListaZap('piracicaba')" style="margin-bottom: 10px; background: #b71c1c;">🚛 PEDIR PARA PIRACICABA</button>
-                <button class="btn-add btn-zap" onclick="enviarListaZap('chico')" style="margin-bottom: 10px; background: #0284c7;">🧀 PEDIR PARA CHICO FRIOS</button>
-                <button class="btn-add btn-zap" onclick="enviarListaZap('ambev')" style="margin-bottom: 10px; background: #ffa000;">🍺 PEDIR NA AMBEV</button>
-                <button class="btn-add btn-zap" onclick="enviarListaZap('coca')" style="margin-bottom: 10px; background: #d32f2f;">🥤 PEDIR NA COCA-COLA</button>
+                <button class="btn-add" onclick="enviarListaZap('deck')" style="margin-bottom: 10px; background: #fb8c00;">🔥 PEDIR NO DECK</button>
+                <button class="btn-add" onclick="enviarListaZap('piracicaba')" style="margin-bottom: 10px; background: #b71c1c;">RM TRUCK - PIRACICABA</button>
+                <button class="btn-add" onclick="enviarListaZap('chico')" style="margin-bottom: 10px; background: #0284c7;">🧀 PEDIR PARA CHICO FRIOS</button>
+                <button class="btn-add" onclick="enviarListaZap('ambev')" style="margin-bottom: 10px; background: #ffa000;">🍺 PEDIR NA AMBEV</button>
+                <button class="btn-add" onclick="enviarListaZap('coca')" style="margin-bottom: 10px; background: #d32f2f;">🥤 PEDIR NA COCA-COLA</button>
             </div>
         </div>
 
@@ -485,7 +482,7 @@
                 <h2 style="font-size:16px; color:var(--azul); margin-top:0;">CONTAGEM REAL</h2>
                 <p style="font-size:12px; color:#64748b; margin-bottom: 20px;">Atualize os valores de acordo com o que você está vendo na prateleira.</p>
                 <div id="render-contagem"></div>
-                <button class="btn-add btn-azul" onclick="salvarContagem(this)">💾 FINALIZAR CONTAGEM</button>
+                <button class="btn-add" style="background: var(--azul);" onclick="salvarContagem(this)">💾 FINALIZAR CONTAGEM</button>
             </div>
         </div>
 
