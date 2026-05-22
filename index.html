@@ -181,7 +181,7 @@
                     mode: 'no-cors',
                     body: JSON.stringify({ action: 'update', id, valor: novoValor, validade: novaValidade })
                 });
-                window.mostrarAviso("✏️ Dados atualizados com sucesso!", "sucesso");
+                window.mostrarAviso("✏️ Dados updated com sucesso!", "sucesso");
             } catch (e) {
                 console.error(e);
                 window.mostrarAviso("❌ Erro ao atualizar preço/validade.", "erro");
@@ -332,6 +332,8 @@
                 else if (tipo === 'ambev') filtrados = itensParaComprar.filter(i => i.categoria === 'Ambev');
                 else if (tipo === 'coca') filtrados = itensParaComprar.filter(i => i.categoria === 'Coca-Cola');
                 else if (tipo === 'deck') filtrados = itensParaComprar.filter(i => i.categoria === 'Deck');
+                else if (tipo === 'ifish') filtrados = itensParaComprar.filter(i => i.categoria === 'Ifish');
+                else if (tipo === 'lagoazul') filtrados = itensParaComprar.filter(i => i.categoria === 'Lago Azul');
 
                 if(filtrados.length === 0) {
                     return window.mostrarAviso("⚠️ Nenhum item crítico encontrado para este fornecedor.", "aviso");
@@ -556,6 +558,8 @@
                 <button class="btn-add" onclick="enviarListaZap('chico')" style="margin-bottom: 10px; background: #0284c7;">🧀 PEDIR PARA CHICO FRIOS</button>
                 <button class="btn-add" onclick="enviarListaZap('ambev')" style="margin-bottom: 10px; background: #ffa000;">🍺 PEDIR NA AMBEV</button>
                 <button class="btn-add" onclick="enviarListaZap('coca')" style="margin-bottom: 10px; background: #d32f2f;">🥤 PEDIR NA COCA-COLA</button>
+                <button class="btn-add" onclick="enviarListaZap('ifish')" style="margin-bottom: 10px; background: #0d9488;">🐟 PEDIR NO IFISH</button>
+                <button class="btn-add" onclick="enviarListaZap('lagoazul')" style="margin-bottom: 10px; background: #4f46e5;">🏞️ PEDIR NO LAGO AZUL</button>
             </div>
         </div>
 
