@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gestão de Estoque - Seo Pacheco</title>
+    <title>Gestão GP Tech PRO - Deck Churrascaria</title>
 
     <script type="module">
 
@@ -145,7 +145,46 @@
             }
         };
 
-        // 3. FINALIZAR CONTAGEM (AUDITORIA)
+        // INTERFACE: TOGGLE DO MINI PAINEL DE EDIÇÃO
+        window.togglePainelEdicao = function(id) {
+            const painel = document.getElementById(`edit-panel-${id}`);
+            if (painel.style.display === "none" || !painel.style.display) {
+                painel.style.display = "block";
+            } else {
+                painel.style.display = "none";
+            }
+        };
+
+        // 3. SALVAR PREÇO E VALIDADE DIRETAMENTE PELO CARD
+        window.salvarPrecoValidade = async function(id) {
+            const novoValor = Number(document.getElementById(`edit-valor-${id}`).value);
+            const novaValidade = document.getElementById(`edit-validade-${id}`).value;
+            const btn = document.getElementById(`btn-salvar-${id}`);
+            
+            btn.innerHTML = "⏳...";
+
+            // Sincroniza rápido na tela
+            const index = window.insumosDados.findIndex(item => item.id === id);
+            if(index !== -1) {
+                window.insumosDados[index].valor = novoValor;
+                window.insumosDados[index].validade = novaValidade;
+                window.renderizarSistemas();
+            }
+
+            try {
+                await fetch(URL_PLANILHA, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    body: JSON.stringify({ action: 'update', id, valor: novoValor, validade: novaValidade })
+                });
+                window.mostrarAviso("✏️ Dados atualizados com sucesso!", "sucesso");
+            } catch (e) {
+                console.error(e);
+                window.mostrarAviso("❌ Erro ao atualizar preço/validade.", "erro");
+            }
+        };
+
+        // 4. FINALIZAR CONTAGEM (AUDITORIA)
         window.salvarContagem = async function(btn) {
             btn.innerHTML = "⏳ Salvando...";
             let atualizacoes = [];
@@ -200,29 +239,52 @@
                 }
 
                 let alertaValidade = "";
+                let textoValidadeFormatado = "Não informada";
+                
                 if(item.validade) {
                     const hoje = new Date();
                     const dataVenc = new Date(item.validade);
                     const diffTime = dataVenc - hoje;
                     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    
+                    textoValidadeFormatado = item.validade.split('-').reverse().join('/');
+                    
                     if(diffDays <= 5 && diffDays >= 0) alertaValidade = `<span class="badge-venc">⚠️ VENCE EM ${diffDays} DIAS</span>`;
                     else if(diffDays < 0) alertaValidade = `<span class="badge-venc" style="background:#000; color:#fff;">🚫 VENCIDO</span>`;
                 }
 
                 window.idsContagem.push(item.id);
 
-                // ABA 1: ESTOQUE (LIXEIRA REMOVIDA DAQUI)
+                // ABA 1: ESTOQUE (COM MINI FORM DE FÁCIL ACESSO PARA VALOR E VALIDADE)
                 listaInsumos.innerHTML += `
                     <div class="card-item ${critico ? 'critico' : ''}">
-                        <div class="info">
-                            <span class="categoria-tag">${item.categoria}</span>
-                            <span class="nome">${item.nome} ${alertaValidade}</span>
-                            <span class="detalhe">${item.atual} ${item.unidade} | Custo: R$ ${(item.valor || 0).toFixed(2)}</span>
-                            <span class="detalhe subtotal-cor">Subtotal: R$ ${(item.atual * (item.valor || 0)).toFixed(2)}</span>
+                        <div class="card-main-row">
+                            <div class="info">
+                                <span class="categoria-tag">${item.categoria}</span>
+                                <span class="nome">${item.nome} ${alertaValidade}</span>
+                                <span class="detalhe">${item.atual} ${item.unidade} | Custo: R$ ${(item.valor || 0).toFixed(2)}</span>
+                                <span class="detalhe subtotal-cor">Subtotal: R$ ${(item.atual * (item.valor || 0)).toFixed(2)}</span>
+                                <span class="detalhe data-val-cor">Validade: ${textoValidadeFormatado}</span>
+                            </div>
+                            <div class="controles">
+                                <button onclick="alterarEstoque('${item.id}', ${item.atual}, -1)">-</button>
+                                <button onclick="alterarEstoque('${item.id}', ${item.atual}, 1)">+</button>
+                                <button class="btn-edit-inline" onclick="window.togglePainelEdicao('${item.id}')">📝</button>
+                            </div>
                         </div>
-                        <div class="controles">
-                            <button onclick="alterarEstoque('${item.id}', ${item.atual}, -1)">-</button>
-                            <button onclick="alterarEstoque('${item.id}', ${item.atual}, 1)">+</button>
+                        
+                        <div class="edit-panel" id="edit-panel-${item.id}" style="display:none;">
+                            <div class="edit-grid">
+                                <div>
+                                    <label>Custo Unit. (R$)</label>
+                                    <input type="number" step="0.01" id="edit-valor-${item.id}" value="${item.valor || 0}">
+                                </div>
+                                <div>
+                                    <label>Vencimento</label>
+                                    <input type="date" id="edit-validade-${item.id}" value="${item.validade ? item.validade.substring(0,10) : ''}">
+                                </div>
+                            </div>
+                            <button class="btn-save-edit" id="btn-salvar-${item.id}" onclick="window.salvarPrecoValidade('${item.id}')">SALVAR ALTERAÇÕES</button>
                         </div>
                     </div>
                 `;
@@ -273,7 +335,7 @@
 
                 let msg = `*📋 SOLICITAÇÃO DE MERCADORIA - SEO PACHECO*\n\n`;
                 filtrados.forEach(i => msg += `• ${i.nome}\n`);
-            
+                msg += `\n_Gerado via Sistema GP Tech_`;
                 
                 let linkZap = telefone 
                     ? `https://api.whatsapp.com/send?phone=${telefone}&text=${encodeURIComponent(msg)}`
@@ -330,16 +392,17 @@
         input:focus { border-color: var(--laranja); }
         
         .btn-add { background: var(--laranja); color: white; border: none; width: 100%; padding: 16px; border-radius: 15px; font-weight: 900; cursor: pointer; }
-        .btn-zap { background: #25D366; }
 
-        /* Cards do Estoque */
-        .card-item { background: white; padding: 15px; border-radius: 15px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border-left: 6px solid #e2e8f0; transition: all 0.2s ease; }
+        /* Estrutura de Linhas dos Cards */
+        .card-item { background: white; padding: 15px; border-radius: 15px; margin-bottom: 10px; display: flex; flex-direction: column; border-left: 6px solid #e2e8f0; transition: all 0.2s ease; }
+        .card-main-row { display: flex; justify-content: space-between; align-items: center; width: 100%; }
         
         /* CARD CRÍTICO TOTALMENTE VERMELHO */
         .card-item.critico { background: var(--vermelho) !important; color: white !important; border-left-color: #7f1d1d !important; }
         .card-item.critico .nome { color: white !important; }
         .card-item.critico .detalhe { color: #fecaca !important; }
         .card-item.critico .subtotal-cor { color: #ffe4e6 !important; font-weight: bold; }
+        .card-item.critico .data-val-cor { color: #fed7d7 !important; }
         .card-item.critico .categoria-tag { background: rgba(255, 255, 255, 0.2) !important; color: white !important; }
         .card-item.critico .controles button { background: rgba(255, 255, 255, 0.2); color: white; border: none; }
         .card-item.critico .controles-contagem input { background: rgba(255, 255, 255, 0.2) !important; color: white !important; }
@@ -348,11 +411,26 @@
         .nome { display: block; font-weight: bold; color: #1e293b; font-size: 15px; margin: 2px 0; }
         .detalhe { font-size: 12px; color: #64748b; display: block; }
         .subtotal-cor { color: var(--laranja); }
+        .data-val-cor { color: var(--azul); font-weight: 500; }
         
         .badge-venc { font-size: 9px; background: var(--vermelho); color: white; padding: 2px 6px; border-radius: 4px; margin-left: 5px; vertical-align: middle; }
 
         .controles { display: flex; gap: 5px; }
-        .controles button { padding: 10px 18px; border: none; border-radius: 10px; background: #f8fafc; font-weight: bold; font-size: 16px; cursor: pointer; border: 1px solid #f1f5f9; }
+        .controles button { padding: 10px 18px; border: none; border-radius: 10px; background: #f8fafc; font-weight: bold; font-size: 16px; cursor: pointer; border: 1px solid #f1f5f9; color: #1e293b; }
+        .btn-edit-inline { background: #e0f2fe !important; color: var(--azul) !important; border-color: #bae6fd !important; font-size: 13px !important; padding: 10px 14px !important; }
+        .card-item.critico .btn-edit-inline { background: rgba(255, 255, 255, 0.25) !important; color: white !important; border: none !important; }
+
+        /* MINI PAINEL DE EDIÇÃO EMBUTIDO NO CARD */
+        .edit-panel { margin-top: 12px; padding-top: 12px; border-top: 1px dashed #e2e8f0; width: 100%; }
+        .card-item.critico .edit-panel { border-top-color: rgba(255, 255, 255, 0.3); }
+        .edit-grid { display: flex; gap: 10px; }
+        .edit-grid > div { flex: 1; }
+        .edit-grid label { font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; }
+        .card-item.critico .edit-grid label { color: #fecaca; }
+        .edit-grid input { padding: 8px; margin: 4px 0 8px; border-radius: 8px; font-size: 13px; background: #f8fafc; }
+        .card-item.critico .edit-grid input { background: white; color: #1e293b; border-color: transparent; }
+        .btn-save-edit { background: var(--azul); color: white; border: none; width: 100%; padding: 10px; border-radius: 10px; font-weight: bold; font-size: 11px; cursor: pointer; letter-spacing: 0.5px; }
+        .card-item.critico .btn-save-edit { background: white; color: var(--vermelho); }
 
         .controles-contagem input { width: 80px; text-align: center; margin: 0; padding: 10px; font-weight: bold; background: #f1f5f9; border: none; border-radius: 8px; }
         .card-compra { background: #fff8e1; border: 1px dashed #ffa000; padding: 12px; border-radius: 10px; margin-bottom: 8px; font-size: 13px; }
