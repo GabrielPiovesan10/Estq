@@ -351,10 +351,10 @@
 
                 let msg = `*📋 SOLICITAÇÃO DE MERCADORIA - SEO PACHECO*\n\n`;
                 
-                // NOVO: Adiciona o cálculo de quantidade diretamente no texto enviado pelo WhatsApp
+                // NOVO FORMATO PREMIUM: "• Nome do Produto - 15 UN"
                 filtrados.forEach(i => {
                     const faltamNoZap = i.minimo - i.atual;
-                    msg += `• ${i.nome} (Pedir: ${faltamNoZap} ${i.unidade})\n`;
+                    msg += `• ${i.nome} - ${faltamNoZap} ${i.unidade}\n`;
                 });
                 
                 let linkZap = telefone 
@@ -605,3 +605,4 @@
     </script>
 </body>
 </html>
+
