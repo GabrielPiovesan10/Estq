@@ -335,7 +335,7 @@
 
                 let msg = `*📋 SOLICITAÇÃO DE MERCADORIA - SEO PACHECO*\n\n`;
                 filtrados.forEach(i => msg += `• ${i.nome}\n`);
-                msg += `\n_Gerado via Sistema GP Tech_`;
+                
                 
                 let linkZap = telefone 
                     ? `https://api.whatsapp.com/send?phone=${telefone}&text=${encodeURIComponent(msg)}`
