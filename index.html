@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gestão GP Tech PRO - Deck Churrascaria</title>
+
+    <script type="module">
+
+        // =================================================================
+        // CONFIGURAÇÃO DO BANCO DE DADOS (GOOGLE SHEETS)
+        // Cole aqui a URL do Web App gerada no seu Google Apps Script
+        // =================================================================
+        const URL_PLANILHA = "https://script.google.com/macros/s/AKfycbxvqsY-qjPeiuBgTVI6MYG6LRBi4hR_WjImCjYiTr2INIqQmUaDJMoIfO-E5oZ4HI1NhQ/exec";
+
+        window.insumosDados = []; // Cache local dos produtos
+        window.idsContagem = []; 
+
+        // FUNÇÃO AUXILIAR DE CRIPTOGRAFIA (SHA-256 NATIVO)
+        async function gerarHash(string) {
+            const msgBuffer = new TextEncoder().encode(string);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        // TRAVA DE SEGURANÇA COM TELA DE LOGIN PERSONALIZADA
+        window.verificarAcesso = async function() {
+            if (localStorage.getItem('gptech_logado') === 'true') {
+                document.getElementById('login-screen').style.display = 'none';
+                window.carregarDados();
+                return;
+            }
+            // Se não estiver logado, a tela de login continua visível bloqueando o app
+        };
+
+        // FUNÇÃO EXECUTADA AO CLICAR EM ENTRAR NO LOGIN
+        window.fazerLogin = async function() {
+            const inputSenha = document.getElementById('senha-input').value;
+            const msgErro = document.getElementById('login-error');
+            msgErro.innerText = "";
+
+            if (!inputSenha) {
+                msgErro.innerText = "⚠️ Digite uma senha!";
+                return;
+            }
+
+          
+            const hashCorreto = "6960db618961d03b5b0c8a08acd77b63599d24fb272cdc29fdbac636c53812f5";
+            const hashDigitado = await gerarHash(inputSenha);
+
+            if (hashDigitado === hashCorreto) {
+                localStorage.setItem('gptech_logado', 'true');
+                document.getElementById('login-screen').style.display = 'none';
+                window.carregarDados();
+            } else {
+                msgErro.innerText = "🚫 Senha incorreta! Tente novamente.";
+                document.getElementById('senha-input').value = "";
+                document.getElementById('senha-input').focus();
+            }
+        };
+
+        // CARREGAR DADOS DA PLANILHA
+        window.carregarDados = async function() {
+            try {
+                const response = await fetch(`${URL_PLANILHA}?action=read`);
+                window.insumosDados = await response.json();
+                window.renderizarSistemas();
+            } catch (e) {
+                console.error("Erro ao carregar dados da planilha:", e);
+            }
+        };
+
+        // 1. ADICIONAR INSUMO NA PLANILHA
+        window.adicionarInsumo = async function() {
+            const nome = document.getElementById('nome').value;
+            const tabular = Number(document.getElementById('qtd-atual').value); // mantido original
+            const atual = Number(document.getElementById('qtd-atual').value);
+            const minimo = Number(document.getElementById('qtd-minima').value);
+            const unidadedialog = document.getElementById('unidade').value; // mantém compatibilidade se necessário
+            const unidade = document.getElementById('unidade').value;
+            const categoria = document.getElementById('categoria').value;
+            const valor = Number(document.getElementById('valor-unitario').value);
+            const validade = document.getElementById('validade').value;
+
+            if(!nome || !unidade || !categoria) return alert("Preencha os campos obrigatórios!");
+
+            const btnSubmit = document.querySelector('button[type="submit"]');
+            btnSubmit.innerHTML = "⏳ Salvando...";
+
+            try {
+                await fetch(URL_PLANILHA, {
+                    method: 'POST',
+                    mode: 'no-cors', // Evita bloqueio de CORS no redirecionamento do Google
+                    body: JSON.stringify({ action: 'add', nome, atual, minimo, unidade, categoria, valor, validade })
+                });
+                document.getElementById('form-insumo').reset();
+                btnSubmit.innerHTML = "+ CADASTRAR NO SISTEMA"; // Corrigido para bater com seu HTML
+                window.carregarDados(); // Recarrega a lista
+            } catch (e) { 
+                console.error(e); 
+                btnSubmit.innerHTML = "+ CADASTRAR NO SISTEMA";
+            }
+        };
+
+        // 2. ALTERAR ESTOQUE (+ ou -)
+        window.alterarEstoque = async function(id, atual, valor) {
+            const novoValor = atual + valor;
+            if(novoValor < 0) return;
+
+            // Atualiza rápido na tela (Visual Dinâmico)
+            const index = window.insumosDados.findIndex(item => item.id === id);
+            if(index !== -1) {
+                window.insumosDados[index].atual = novoValor;
+                window.renderizarSistemas();
+            }
+
+            try {
+                await fetch(URL_PLANILHA, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    body: JSON.stringify({ action: 'update', id, atual: novoValor })
+                });
+            } catch (e) {
+                console.error(e);
+            }
+        };
+
+        // 3. DELETAR INSUMO
+        window.deletarInsumo = async function(id) {
+            if(confirm("Excluir este insumo permanentemente?")) {
+                try {
+                    await fetch(URL_PLANILHA, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        body: JSON.stringify({ action: 'delete', id })
+                    });
+                    window.carregarDados();
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+        };
+
+        // 4. FINALIZAR CONTAGEM (AUDITORIA)
+        window.salvarContagem = async function(btn) {
+            btn.innerHTML = "⏳ Salvando...";
+            let atualizacoes = [];
+
+            for (let id of window.idsContagem) {
+                let inputContagem = document.getElementById(`count-${id}`);
+                if (inputContagem) {
+                    atualizacoes.push({ id, atual: Number(inputContagem.value) });
+                }
+            }
+
+            try {
+                await fetch(URL_PLANILHA, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    body: JSON.stringify({ action: 'bulkUpdate', dados: atualizacoes })
+                });
+                alert("✅ Contagem finalizada com sucesso!");
+                btn.innerHTML = "💾 FINALIZAR CONTAGEM";
+                mudarAba('estoque', document.querySelector('.tab-btn:first-child'));
+                window.carregarDados();
+            } catch (e) {
+                console.error(e);
+                btn.innerHTML = "💾 FINALIZAR CONTAGEM";
+            }
+        };
+
+        // RENDERIZAR E FILTRAR OS DADOS NA TELA
+        window.renderizarSistemas = function() {
+            const termoBusca = document.getElementById('busca-produto').value.toLowerCase();
+            
+            const listaInsumos = document.getElementById('render-insumos');
+            const listaCompras = document.getElementById('render-compras');
+            const listaContagem = document.getElementById('render-contagem');
+            const resumoFinanceiro = document.getElementById('valor-total-estoque');
+            
+            listaInsumos.innerHTML = "";
+            listaCompras.innerHTML = "";
+            listaContagem.innerHTML = "";
+            window.idsContagem = [];
+            let itensParaComprar = [];
+            let totalFinanceiro = 0;
+
+            window.insumosDados.forEach((item) => {
+                const critico = item.atual <= item.minimo;
+                
+                // Acumula valor total do estoque real completo (independente da busca)
+                totalFinanceiro += (item.atual * (item.valor || 0));
+
+                // Filtro de pesquisa por nome ou categoria
+                if (termoBusca && !item.nome.toLowerCase().includes(termoBusca) && !item.categoria.toLowerCase().includes(termoBusca)) {
+                    return; 
+                }
+
+                // Alerta de Validade
+                let alertaValidade = "";
+                if(item.validade) {
+                    const hoje = new Date();
+                    const dataVenc = new Date(item.validade);
+                    const diffTime = dataVenc - hoje;
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    if(diffDays <= 5 && diffDays >= 0) alertaValidade = `<span class="badge-venc">⚠️ VENCE EM ${diffDays} DIAS</span>`;
+                    else if(diffDays < 0) alertaValidade = `<span class="badge-venc" style="background:#000; color:#fff;">🚫 VENCIDO</span>`;
+                }
+
+                window.idsContagem.push(item.id);
+
+                // ABA 1: ESTOQUE
+                listaInsumos.innerHTML += `
+                    <div class="card-item ${critico ? 'critico' : ''}">
+                        <div class="info">
+                            <span class="categoria-tag">${item.categoria}</span>
+                            <span class="nome">${item.nome} ${alertaValidade}</span>
+                            <span class="detalhe">${item.atual} ${item.unidade} | Custo: R$ ${(item.valor || 0).toFixed(2)}</span>
+                            <span class="detalhe subtotal-cor">Subtotal: R$ ${(item.atual * (item.valor || 0).toFixed(2))}</span>
+                        </div>
+                        <div class="controles">
+                            <button onclick="alterarEstoque('${item.id}', ${item.atual}, -1)">-</button>
+                            <button onclick="alterarEstoque('${item.id}', ${item.atual}, 1)">+</button>
+                            <button class="btn-del" onclick="deletarInsumo('${item.id}')">🗑️</button>
+                        </div>
+                    </div>
+                `;
+
+                // ABA 2: COMPRAS
+                if(critico) {
+                    itensParaComprar.push(item); // Mantém o objeto completo para filtragem inteligente
+                    listaCompras.innerHTML += `
+                        <div class="card-compra">
+                            <span><b>${item.nome}</b> (${item.categoria}) precisa de reposição!</span>
+                        </div>
+                    `;
+                }
+
+                // ABA 3: CONTAGEM
+                listaContagem.innerHTML += `
+                    <div class="card-item contagem-card ${critico ? 'critico' : ''}">
+                        <div class="info" style="flex: 1;">
+                            <span class="nome">${item.nome}</span>
+                            <span class="detalhe">Sistema: ${item.atual} ${item.unidade}</span>
+                        </div>
+                        <div class="controles-contagem">
+                            <input type="number" id="count-${item.id}" value="${item.atual}">
+                        </div>
+                    </div>
+                `;
+            });
+
+            resumoFinanceiro.innerHTML = `R$ ${totalFinanceiro.toFixed(2)}`;
+
+            window.enviarListaZap = function(tipo) {
+                if(itensParaComprar.length === 0) return alert("Estoque em dia!");
+                
+                let filtrados = [];
+                let telefone = ""; 
+
+                if (tipo === 'piracicaba') {
+                    filtrados = itensParaComprar.filter(i => i.categoria === 'Piracicaba');
+                } 
+                else if (tipo === 'chico') {
+                    filtrados = itensParaComprar.filter(i => i.categoria === 'Chico');
+                } 
+                else if (tipo === 'ambev') {
+                    filtrados = itensParaComprar.filter(i => i.categoria === 'Ambev');
+                } 
+                else if (tipo === 'coca') {
+                    filtrados = itensParaComprar.filter(i => i.categoria === 'Coca-Cola');
+                }
+                else if (tipo === 'deck') {
+                    filtrados = itensParaComprar.filter(i => i.categoria === 'Deck');
+                }
+
+                if(filtrados.length === 0) return alert("Nenhum item pendente para este fornecedor!");
+
+                let msg = `*📋 SOLICITAÇÃO DE MERCADORIA - SEO PACHECO*\n\n`;
+                filtrados.forEach(i => msg += `• ${i.nome} (${i.atual} ${i.unidade} restando)\n`);
+                msg += `\n_Gerado via Sistema GP Tech_`;
+                
+                let linkZap = telefone 
+                    ? `https://api.whatsapp.com/send?phone=${telefone}&text=${encodeURIComponent(msg)}`
+                    : `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
+
+                window.location.href = linkZap;
+            };
+        };
+
+        // Inicializa chamando a validação de segurança antes de abrir o app
+        window.onload = () => {
+            window.verificarAcesso();
+        };
+    </script>
+
+    <style>
+        :root { --laranja: #fb8c00; --laranja-escuro: #e65100; --vermelho: #d32f2f; --azul: #0284c7; --fundo: #f1f5f9; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--fundo); margin: 0; padding-bottom: 50px; color: #1e293b; }
+        
+        /* ESTILOS DA TELA DE LOGIN PREMIUM */
+        #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); display: flex; align-items: center; justify-content: center; z-index: 99999; padding: 20px; box-sizing: border-box; }
+        .login-card { background: white; padding: 35px 25px; border-radius: 25px; box-shadow: 0 15px 35px rgba(0,0,0,0.08); width: 100%; max-width: 360px; text-align: center; border-top: 6px solid var(--laranja); }
+        .login-brand { font-size: 11px; font-weight: 900; color: var(--laranja); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 5px; }
+        .login-title { font-size: 22px; font-weight: bold; color: #1e293b; margin: 0 0 8px 0; }
+        .login-subtitle { font-size: 13px; color: #64748b; margin-bottom: 25px; }
+        .login-error-field { color: var(--vermelho); font-size: 12px; font-weight: bold; min-height: 18px; margin-bottom: 15px; }
+        .btn-login { background: var(--laranja); color: white; border: none; width: 100%; padding: 15px; border-radius: 12px; font-weight: bold; font-size: 14px; cursor: pointer; box-shadow: 0 4px 12px rgba(251, 140, 0, 0.2); transition: background 0.2s; }
+        .btn-login:active { background: var(--laranja-escuro); }
+
+        header { background: var(--laranja); color: white; padding: 20px; text-align: center; border-radius: 0 0 25px 25px; box-shadow: 0 4px 15px rgba(251, 140, 0, 0.3); }
+        .resumo-financeiro { background: rgba(0,0,0,0.1); padding: 10px; border-radius: 10px; margin-top: 10px; font-size: 12px; }
+        #valor-total-estoque { font-size: 18px; font-weight: 900; display: block; }
+
+        .container { padding: 15px; max-width: 500px; margin: auto; }
+        
+        .tabs { display: flex; gap: 8px; margin-bottom: 15px; background: #fff; padding: 5px; border-radius: 15px; }
+        .tab-btn { flex: 1; padding: 12px; border: none; border-radius: 12px; background: transparent; font-weight: bold; font-size: 12px; cursor: pointer; color: #64748b; }
+        .tab-btn.active { background: var(--laranja); color: white; }
+
+        /* Barra de Busca */
+        .busca-container { margin-bottom: 15px; }
+        .busca-input { width: 100%; padding: 14px; border: 1.5px solid #e2e8f0; border-radius: 15px; box-sizing: border-box; font-size: 14px; outline: none; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.02); }
+        .busca-input:focus { border-color: var(--laranja); }
+
+        .form-card, .painel-card { background: white; padding: 20px; border-radius: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        label { font-size: 11px; font-weight: bold; color: #64748b; margin-left: 5px; text-transform: uppercase; }
+        input, select { width: 100%; padding: 12px; margin: 4px 0 12px; border: 1.5px solid #e2e8f0; border-radius: 12px; box-sizing: border-box; font-size: 14px; outline: none; }
+        input:focus { border-color: var(--laranja); }
+        
+        .btn-add { background: var(--laranja); color: white; border: none; width: 100%; padding: 16px; border-radius: 15px; font-weight: 900; cursor: pointer; }
+        .btn-zap { background: #25D366; }
+        .btn-azul { background: var(--azul); }
+
+        /* Cards do Estoque */
+        .card-item { background: white; padding: 15px; border-radius: 15px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border-left: 6px solid #e2e8f0; transition: all 0.2s ease; }
+        
+        /* CARD CRÍTICO TOTALMENTE VERMELHO */
+        .card-item.critico { background: var(--vermelho) !important; color: white !important; border-left-color: #7f1d1d !important; }
+        .card-item.critico .nome { color: white !important; }
+        .card-item.critico .detalhe { color: #fecaca !important; }
+        .card-item.critico .subtotal-cor { color: #ffe4e6 !important; font-weight: bold; }
+        .card-item.critico .categoria-tag { background: rgba(255, 255, 255, 0.2) !important; color: white !important; }
+        .card-item.critico .controles button { background: rgba(255, 255, 255, 0.2); color: white; border: none; }
+        .card-item.critico .btn-del { background: rgba(0, 0, 0, 0.2) !important; color: white !important; }
+        .card-item.critico .controles-contagem input { background: rgba(255, 255, 255, 0.2) !important; color: white !important; }
+
+        .categoria-tag { font-size: 9px; background: #f1f5f9; padding: 2px 8px; border-radius: 5px; color: #64748b; font-weight: bold; text-transform: uppercase; }
+        .nome { display: block; font-weight: bold; color: #1e293b; font-size: 15px; margin: 2px 0; }
+        .detalhe { font-size: 12px; color: #64748b; display: block; }
+        .subtotal-cor { color: var(--laranja); }
+        
+        .badge-venc { font-size: 9px; background: var(--vermelho); color: white; padding: 2px 6px; border-radius: 4px; margin-left: 5px; vertical-align: middle; }
+
+        .controles button { padding: 10px 15px; border: none; border-radius: 10px; background: #f8fafc; font-weight: bold; cursor: pointer; border: 1px solid #f1f5f9; }
+        .btn-del { background: #fee2e2 !important; color: var(--vermelho); border: none !important; }
+
+        .controles-contagem input { width: 80px; text-align: center; margin: 0; padding: 10px; font-weight: bold; background: #f1f5f9; border: none; border-radius: 8px; }
+
+        .card-compra { background: #fff8e1; border: 1px dashed #ffa000; padding: 12px; border-radius: 10px; margin-bottom: 8px; font-size: 13px; }
+
+        .aba-content { display: none; }
+        .aba-content.active { display: block; animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div id="login-screen">
+        <div class="login-card">
+            <div class="login-brand">Sistema - GP Tech </div>
+            <h2 class="login-title">Acesso Restrito</h2>
+            <div class="login-subtitle">Gestão de Estoque - Seo Pacheco</div>
+            
+            <form onsubmit="event.preventDefault(); window.fazerLogin();">
+                <label style="margin-left:0; display:block; text-align:left;">Digite a Senha</label>
+                <input type="password" id="senha-input" placeholder="••••••••" style="margin-bottom:5px; text-align:center;" required autofocus>
+                
+                <div id="login-error" class="login-error-field"></div>
+                
+                <button type="submit" class="btn-login">ENTRAR NO SISTEMA</button>
+            </form>
+        </div>
+    </div>
+
+    <header>
+        <h1 style="font-size: 14px; opacity: 0.8;">Gestão de Estoque - Seo Pacheco</h1>
+        <div class="resumo-financeiro">
+            VALOR TOTAL EM ESTOQUE HOJE
+            <span id="valor-total-estoque">R$ 0,00</span>
+        </div>
+    </header>
+
+    <div class="container">
+        
+        <div class="tabs">
+            <button class="tab-btn active" onclick="mudarAba('estoque', this)">📦 ESTOQUE</button>
+            <button class="tab-btn" onclick="mudarAba('compras', this)">🛒 COMPRAS</button>
+            <button class="tab-btn" onclick="mudarAba('contagem', this)">📋 CONTAGEM</button>
+        </div>
+
+        <div class="busca-container">
+            <input type="text" id="busca-produto" class="busca-input" placeholder="🔍 Pesquisar produto ou categoria..." oninput="window.renderizarSistemas()">
+        </div>
+
+        <div id="estoque" class="aba-content active">
+            <div class="form-card">
+                <form id="form-insumo" onsubmit="event.preventDefault(); adicionarInsumo();">
+                    <label>Nome do Produto</label>
+                    <input type="text" id="nome" placeholder="Digite o nome do Produto" required>
+                    
+                    <div style="display:flex; gap:10px;">
+                        <div style="flex:1">
+                            <label>Qtd. Hoje</label>
+                            <input type="number" id="qtd-atual" required>
+                        </div>
+                        <div style="flex:1">
+                            <label>Mín. Alerta</label>
+                            <input type="number" id="qtd-minima" required>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; gap:10px;">
+                        <div style="flex:1">
+                            <label>Unidade</label>
+                            <select id="unidade">
+                                <option value="KG">KG</option>
+                                <option value="UN">UN</option>
+                                <option value="LT">LT</option>
+                                <option value="FD">FARDO</option>
+                            </select>
+                        </div>
+                        <div style="flex:1">
+                            <label>Categoria/Fornecedor</label>
+                            <select id="categoria">
+                                <option value="Deck">Deck</option>
+                                <option value="Mercado">Mercado</option>
+                                <option value="Legumes">Legumes</option>
+                                <option value="Chico">ChicoFrios</option>
+                                <option value="Embalagens">Embalagens</option>
+                                <option value="Material de Limpeza">Material de Limpeza</option>
+                                <option value="Ambev">Ambev</option>
+                                <option value="Lago Azul">Lago Azul</option>
+                                <option value="Coca-Cola">Coca-Cola</option>
+                                <option value="Ifish">Ifish</option>
+                                <option value="Piracicaba">Piracicaba</option>
+                                <option value="Verduras">Verduras</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; gap:10px;">
+                        <div style="flex:1">
+                            <label>Custo Unit. (R$)</label>
+                            <input type="number" step="0.01" id="valor-unitario" placeholder="0.00">
+                        </div>
+                        <div style="flex:1">
+                            <label>Data Validade</label>
+                            <input type="date" id="validade">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-add">+ CADASTRAR NO SISTEMA</button>
+                </form>
+            </div>
+            <div id="render-insumos"></div>
+        </div>
+
+        <div id="compras" class="aba-content">
+            <div class="painel-card">
+                <h2 style="font-size:16px; color:var(--vermelho); margin-top:0;">ITENS PARA REPOSIÇÃO</h2>
+                <div id="render-compras" style="margin-bottom:25px;"></div>
+                
+                <button class="btn-add btn-zap" onclick="enviarListaZap('deck')" style="margin-bottom: 10px; background: #fb8c00;">🔥 PEDIR NO DECK</button>
+                <button class="btn-add btn-zap" onclick="enviarListaZap('piracicaba')" style="margin-bottom: 10px; background: #b71c1c;">🚛 PEDIR PARA PIRACICABA</button>
+                <button class="btn-add btn-zap" onclick="enviarListaZap('chico')" style="margin-bottom: 10px; background: #0284c7;">🧀 PEDIR PARA CHICO FRIOS</button>
+                <button class="btn-add btn-zap" onclick="enviarListaZap('ambev')" style="margin-bottom: 10px; background: #ffa000;">🍺 PEDIR NA AMBEV</button>
+                <button class="btn-add btn-zap" onclick="enviarListaZap('coca')" style="margin-bottom: 10px; background: #d32f2f;">🥤 PEDIR NA COCA-COLA</button>
+            </div>
+        </div>
+
+        <div id="contagem" class="aba-content">
+            <div class="painel-card">
+                <h2 style="font-size:16px; color:var(--azul); margin-top:0;">CONTAGEM REAL</h2>
+                <p style="font-size:12px; color:#64748b; margin-bottom: 20px;">Atualize os valores de acordo com o que você está vendo na prateleira.</p>
+                <div id="render-contagem"></div>
+                <button class="btn-add btn-azul" onclick="salvarContagem(this)">💾 FINALIZAR CONTAGEM</button>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px; opacity: 0.5; font-size: 10px;">
+            SISTEMA DESENVOLVIDO POR GP TECH
+        </div>
+    </div>
+
+    <script>
+        function mudarAba(id, btn) {
+            document.querySelectorAll('.aba-content').forEach(a => a.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            btn.classList.add('active');
+        }
+    </script>
+</body>
+</html>
