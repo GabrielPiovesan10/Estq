@@ -119,6 +119,9 @@
                 document.getElementById('form-insumo').reset();
                 btnSubmit.innerHTML = "+ CADASTRAR NO SISTEMA";
                 window.mostrarAviso("✅ Produto cadastrado com sucesso!", "sucesso");
+                
+                // Redireciona o usuário de volta para a aba de estoque após salvar
+                mudarAba('estoque', document.querySelector('.tab-btn:first-child'));
                 window.carregarDados();
             } catch (e) { 
                 console.error(e); 
@@ -181,7 +184,7 @@
                     mode: 'no-cors',
                     body: JSON.stringify({ action: 'update', id, valor: novoValor, validade: novaValidade })
                 });
-                window.mostrarAviso("✏️ Dados updated com sucesso!", "sucesso");
+                window.mostrarAviso("✏️ Dados atualizados com sucesso!", "sucesso");
             } catch (e) {
                 console.error(e);
                 window.mostrarAviso("❌ Erro ao atualizar preço/validade.", "erro");
@@ -384,8 +387,8 @@
 
         .container { padding: 15px; max-width: 500px; margin: auto; }
         
-        .tabs { display: flex; gap: 8px; margin-bottom: 15px; background: #fff; padding: 5px; border-radius: 15px; }
-        .tab-btn { flex: 1; padding: 12px; border: none; border-radius: 12px; background: transparent; font-weight: bold; font-size: 12px; cursor: pointer; color: #64748b; }
+        .tabs { display: flex; gap: 4px; margin-bottom: 15px; background: #fff; padding: 5px; border-radius: 15px; }
+        .tab-btn { flex: 1; padding: 12px 6px; border: none; border-radius: 12px; background: transparent; font-weight: bold; font-size: 11px; cursor: pointer; color: #64748b; white-space: nowrap; }
         .tab-btn.active { background: var(--laranja); color: white; }
 
         .busca-container { margin-bottom: 15px; }
@@ -477,6 +480,7 @@
         
         <div class="tabs">
             <button class="tab-btn active" onclick="mudarAba('estoque', this)">📦 ESTOQUE</button>
+            <button class="tab-btn" onclick="mudarAba('cadastro', this)">➕ NOVO</button>
             <button class="tab-btn" onclick="mudarAba('compras', this)">🛒 COMPRAS</button>
             <button class="tab-btn" onclick="mudarAba('contagem', this)">📋 CONTAGEM</button>
         </div>
@@ -486,6 +490,10 @@
         </div>
 
         <div id="estoque" class="aba-content active">
+            <div id="render-insumos"></div>
+        </div>
+
+        <div id="cadastro" class="aba-content">
             <div class="form-card">
                 <form id="form-insumo" onsubmit="event.preventDefault(); adicionarInsumo();">
                     <label>Nome do Produto</label>
@@ -545,7 +553,6 @@
                     <button type="submit" class="btn-add">+ CADASTRAR NO SISTEMA</button>
                 </form>
             </div>
-            <div id="render-insumos"></div>
         </div>
 
         <div id="compras" class="aba-content">
