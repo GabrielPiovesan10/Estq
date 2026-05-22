@@ -33,7 +33,7 @@
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
             toast.className = `toast ${tipo}`;
-            toast.innerHTML = mensagem;
+            toast.innerHTML = message;
             
             container.appendChild(toast);
             
@@ -120,7 +120,6 @@
                 btnSubmit.innerHTML = "+ CADASTRAR NO SISTEMA";
                 window.mostrarAviso("✅ Produto cadastrado com sucesso!", "sucesso");
                 
-                // Redireciona o usuário de volta para a aba de estoque após salvar
                 mudarAba('estoque', document.querySelector('.tab-btn:first-child'));
                 window.carregarDados();
             } catch (e) { 
@@ -162,9 +161,10 @@
             }
         };
 
-        // 3. SALVAR PREÇO E VALIDADE DIRETAMENTE PELO CARD
+        // 3. SALVAR PREÇO, MINIMO E VALIDADE DIRETAMENTE PELO CARD
         window.salvarPrecoValidade = async function(id) {
             const novoValor = Number(document.getElementById(`edit-valor-${id}`).value);
+            const novoMinimo = Number(document.getElementById(`edit-minimo-${id}`).value);
             const novaValidade = document.getElementById(`edit-validade-${id}`).value;
             const btn = document.getElementById(`btn-salvar-${id}`);
             
@@ -174,6 +174,7 @@
             const index = window.insumosDados.findIndex(item => item.id === id);
             if(index !== -1) {
                 window.insumosDados[index].valor = novoValor;
+                window.insumosDados[index].minimo = novoMinimo;
                 window.insumosDados[index].validade = novaValidade;
                 window.renderizarSistemas();
             }
@@ -182,12 +183,12 @@
                 await fetch(URL_PLANILHA, {
                     method: 'POST',
                     mode: 'no-cors',
-                    body: JSON.stringify({ action: 'update', id, valor: novoValor, validade: novaValidade })
+                    body: JSON.stringify({ action: 'update', id, valor: novoValor, minimo: novoMinimo, validade: novaValidade })
                 });
                 window.mostrarAviso("✏️ Dados atualizados com sucesso!", "sucesso");
             } catch (e) {
                 console.error(e);
-                window.mostrarAviso("❌ Erro ao atualizar preço/validade.", "erro");
+                window.mostrarAviso("❌ Erro ao atualizar dados.", "erro");
             }
         };
 
@@ -262,14 +263,14 @@
 
                 window.idsContagem.push(item.id);
 
-                // ABA 1: ESTOQUE (COM MINI FORM DE FÁCIL ACESSO PARA VALOR E VALIDADE)
+                // ABA 1: ESTOQUE (EXIBE O MÍNIMO ATUAL E ATUALIZA VIA FORM INLINE)
                 listaInsumos.innerHTML += `
                     <div class="card-item ${critico ? 'critico' : ''}">
                         <div class="card-main-row">
                             <div class="info">
                                 <span class="categoria-tag">${item.categoria}</span>
                                 <span class="nome">${item.nome} ${alertaValidade}</span>
-                                <span class="detalhe">${item.atual} ${item.unidade} | Custo: R$ ${(item.valor || 0).toFixed(2)}</span>
+                                <span class="detalhe">${item.atual} ${item.unidade} | Mín: ${item.minimo} | Custo: R$ ${(item.valor || 0).toFixed(2)}</span>
                                 <span class="detalhe subtotal-cor">Subtotal: R$ ${(item.atual * (item.valor || 0)).toFixed(2)}</span>
                                 <span class="detalhe data-val-cor">Validade: ${textoValidadeFormatado}</span>
                             </div>
@@ -283,8 +284,12 @@
                         <div class="edit-panel" id="edit-panel-${item.id}" style="display:none;">
                             <div class="edit-grid">
                                 <div>
-                                    <label>Custo Unit. (R$)</label>
+                                    <label>Custo (R$)</label>
                                     <input type="number" step="0.01" id="edit-valor-${item.id}" value="${item.valor || 0}">
+                                </div>
+                                <div>
+                                    <label>Mín. Alerta</label>
+                                    <input type="number" id="edit-minimo-${item.id}" value="${item.minimo || 0}">
                                 </div>
                                 <div>
                                     <label>Vencimento</label>
@@ -344,7 +349,6 @@
 
                 let msg = `*📋 SOLICITAÇÃO DE MERCADORIA - SEO PACHECO*\n\n`;
                 filtrados.forEach(i => msg += `• ${i.nome}\n`);
-                
                 
                 let linkZap = telefone 
                     ? `https://api.whatsapp.com/send?phone=${telefone}&text=${encodeURIComponent(msg)}`
