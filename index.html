@@ -98,6 +98,7 @@
             const nome = document.getElementById('nome').value;
             const atual = Number(document.getElementById('qtd-atual').value);
             const minimo = Number(document.getElementById('qtd-minima').value);
+            const meta = Number(document.getElementById('qtd-meta').value);
             const unidade = document.getElementById('unidade').value;
             const categoria = document.getElementById('categoria').value;
             const valor = Number(document.getElementById('valor-unitario').value);
@@ -114,7 +115,7 @@
                 await fetch(URL_PLANILHA, {
                     method: 'POST',
                     mode: 'no-cors',
-                    body: JSON.stringify({ action: 'add', nome, atual, minimo, unidade, categoria, valor, validade })
+                    body: JSON.stringify({ action: 'add', nome, atual, minimo, meta, unidade, categoria, valor, validade })
                 });
                 document.getElementById('form-insumo').reset();
                 btnSubmit.innerHTML = "+ CADASTRAR NO SISTEMA";
@@ -162,10 +163,11 @@
             }
         };
 
-        // 3. SALVAR PREÇO, MINIMO E VALIDADE DIRETAMENTE PELO CARD
+        // 3. SALVAR PREÇO, MINIMO, META E VALIDADE DIRETAMENTE PELO CARD
         window.salvarPrecoValidade = async function(id) {
             const novoValor = Number(document.getElementById(`edit-valor-${id}`).value);
             const novoMinimo = Number(document.getElementById(`edit-minimo-${id}`).value);
+            const novaMeta = Number(document.getElementById(`edit-meta-${id}`).value);
             const novaValidade = document.getElementById(`edit-validade-${id}`).value;
             const btn = document.getElementById(`btn-salvar-${id}`);
             
@@ -176,6 +178,7 @@
             if(index !== -1) {
                 window.insumosDados[index].valor = novoValor;
                 window.insumosDados[index].minimo = novoMinimo;
+                window.insumosDados[index].meta = novaMeta;
                 window.insumosDados[index].validade = novaValidade;
                 window.renderizarSistemas();
             }
@@ -184,7 +187,7 @@
                 await fetch(URL_PLANILHA, {
                     method: 'POST',
                     mode: 'no-cors',
-                    body: JSON.stringify({ action: 'update', id, valor: novoValor, minimo: novoMinimo, validade: novaValidade })
+                    body: JSON.stringify({ action: 'update', id, valor: novoValor, minimo: novoMinimo, meta: novaMeta, validade: novaValidade })
                 });
                 window.mostrarAviso("✏️ Dados atualizados com sucesso!", "sucesso");
             } catch (e) {
@@ -264,14 +267,14 @@
 
                 window.idsContagem.push(item.id);
 
-                // ABA 1: ESTOQUE (COM MINI FORM DE FÁCIL ACESSO PARA VALOR, MINIMO E VALIDADE)
+                // ABA 1: ESTOQUE (COM MINI FORM DE FÁCIL ACESSO PARA VALOR, MINIMO, META E VALIDADE)
                 listaInsumos.innerHTML += `
                     <div class="card-item ${critico ? 'critico' : ''}">
                         <div class="card-main-row">
                             <div class="info">
                                 <span class="categoria-tag">${item.categoria}</span>
                                 <span class="nome">${item.nome} ${alertaValidade}</span>
-                                <span class="detalhe">${item.atual} ${item.unidade} | Mín: ${item.minimo} | Custo: R$ ${(item.valor || 0).toFixed(2)}</span>
+                                <span class="detalhe">${item.atual} ${item.unidade} | Mín: ${item.minimo} | Meta: ${item.meta || 0} | Custo: R$ ${(item.valor || 0).toFixed(2)}</span>
                                 <span class="detalhe subtotal-cor">Subtotal: R$ ${(item.atual * (item.valor || 0)).toFixed(2)}</span>
                                 <span class="detalhe data-val-cor">Validade: ${textoValidadeFormatado}</span>
                             </div>
@@ -283,18 +286,22 @@
                         </div>
                         
                         <div class="edit-panel" id="edit-panel-${item.id}" style="display:none;">
-                            <div class="edit-grid">
+                            <div class="edit-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
                                 <div>
                                     <label>Custo Unit. (R$)</label>
-                                    <input type="number" step="0.01" id="edit-valor-${item.id}" value="${item.valor || 0}">
+                                    <input type="number" step="0.01" id="edit-valor-${item.id}" value="${item.valor || 0}" style="margin-bottom:0;">
                                 </div>
                                 <div>
                                     <label>Mín. Alerta</label>
-                                    <input type="number" id="edit-minimo-${item.id}" value="${item.minimo || 0}">
+                                    <input type="number" id="edit-minimo-${item.id}" value="${item.minimo || 0}" style="margin-bottom:0;">
+                                </div>
+                                <div>
+                                    <label>Meta Estoque</label>
+                                    <input type="number" id="edit-meta-${item.id}" value="${item.meta || 0}" style="margin-bottom:0;">
                                 </div>
                                 <div>
                                     <label>Vencimento</label>
-                                    <input type="date" id="edit-validade-${item.id}" value="${item.validade ? item.validade.substring(0,10) : ''}">
+                                    <input type="date" id="edit-validade-${item.id}" value="${item.validade ? item.validade.substring(0,10) : ''}" style="margin-bottom:0;">
                                 </div>
                             </div>
                             <button class="btn-save-edit" id="btn-salvar-${item.id}" onclick="window.salvarPrecoValidade('${item.id}')">SALVAR ALTERAÇÕES</button>
@@ -302,16 +309,18 @@
                     </div>
                 `;
 
-                // ABA 2: COMPRAS (CÁLCULO AUTOMÁTICO PARA ABASTECER ATÉ O ESTOQUE IDEAL = 2X O MÍNIMO)
+                // ABA 2: COMPRAS (CÁLCULO AUTOMÁTICO PARA ABASTECER ATÉ A META CONFIGURADA PELO APP)
                 if(critico) {
                     itensParaComprar.push(item);
-                    const estoqueIdeal = item.minimo * 2;
-                    const faltam = estoqueIdeal - item.atual;
-                    listaCompras.innerHTML += `
-                        <div class="card-compra">
-                            <span><b>${item.nome}</b> (${item.categoria}) | Sugestão de Compra: <b>${faltam} ${item.unidade}</b></span>
-                        </div>
-                    `;
+                    const metaEstoque = item.meta || 0;
+                    const faltam = metaEstoque - item.atual;
+                    if(faltam > 0) {
+                        listaCompras.innerHTML += `
+                            <div class="card-compra">
+                                <span><b>${item.nome}</b> (${item.categoria}) | Sugestão de Compra: <b>${faltam} ${item.unidade}</b></span>
+                            </div>
+                        `;
+                    }
                 }
 
                 // ABA 3: CONTAGEM
@@ -352,11 +361,13 @@
 
                 let msg = `*📋 SOLICITAÇÃO DE MERCADORIA - SEO PACHECO*\n\n`;
                 
-                // LÓGICA DE COMPRA INTELIGENTE NO ZAP: Abastece até o dobro do mínimo para dar folga
+                // LÓGICA DE COMPRA DEFINITIVA: Abastece até a meta configurada para atingir o mundo ideal da prateleira
                 filtrados.forEach(i => {
-                    const estoqueIdealNoZap = i.minimo * 2;
-                    const faltamNoZap = estoqueIdealNoZap - i.atual;
-                    msg += `• ${i.nome} - ${faltamNoZap} ${i.unidade}\n`;
+                    const metaEstoqueNoZap = i.meta || 0;
+                    const faltamNoZap = metaEstoqueNoZap - i.atual;
+                    if(faltamNoZap > 0) {
+                        msg += `• ${i.nome} - ${faltamNoZap} ${i.unidade}\n`;
+                    }
                 });
                 
                 let linkZap = telefone 
@@ -520,6 +531,10 @@
                         <div style="flex:1">
                             <label>Mín. Alerta</label>
                             <input type="number" id="qtd-minima" required>
+                        </div>
+                        <div style="flex:1">
+                            <label>Meta Estoque</label>
+                            <input type="number" id="qtd-meta" required>
                         </div>
                     </div>
 
