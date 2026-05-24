@@ -354,6 +354,11 @@
                 else if (tipo === 'deck') filtrados = itensParaComprar.filter(i => i.categoria === 'Deck');
                 else if (tipo === 'ifish') filtrados = itensParaComprar.filter(i => i.categoria === 'Ifish');
                 else if (tipo === 'lagoazul') filtrados = itensParaComprar.filter(i => i.categoria === 'Lago Azul');
+                else if (tipo === 'mercado') {
+                    // Filtra as 4 categorias solicitadas e ordena para deixar a mensagem organizada
+                    filtrados = itensParaComprar.filter(i => ['Material de Limpeza', 'Mercado', 'Verduras', 'Legumes'].includes(i.categoria));
+                    filtrados.sort((a, b) => a.categoria.localeCompare(b.categoria));
+                }
 
                 if(filtrados.length === 0) {
                     return window.mostrarAviso("⚠️ Nenhum item crítico encontrado para este fornecedor.", "aviso");
@@ -362,10 +367,16 @@
                 let msg = `*📋 SOLICITAÇÃO DE MERCADORIA - SEO PACHECO*\n\n`;
                 
                 // LÓGICA DE COMPRA DEFINITIVA: Abastece até a meta configurada para atingir o mundo ideal da prateleira
+                let ultimaCategoria = "";
                 filtrados.forEach(i => {
                     const metaEstoqueNoZap = i.meta || 0;
                     const faltamNoZap = metaEstoqueNoZap - i.atual;
                     if(faltamNoZap > 0) {
+                        // Se for mercado, separa visualmente por títulos de categorias
+                        if (tipo === 'mercado' && i.categoria !== ultimaCategoria) {
+                            msg += `\n*[${i.categoria.toUpperCase()}]*\n`;
+                            ultimaCategoria = i.categoria;
+                        }
                         msg += `• ${i.nome} - ${faltamNoZap} ${i.unidade}\n`;
                     }
                 });
@@ -589,6 +600,7 @@
                 <div id="render-compras" style="margin-bottom:25px;"></div>
                 
                 <button class="btn-add" onclick="enviarListaZap('deck')" style="margin-bottom: 10px; background: #fb8c00;">🔥 PEDIR NO DECK</button>
+                <button class="btn-add" onclick="enviarListaZap('mercado')" style="margin-bottom: 10px; background: #2e7d32;">🛒 PEDIR NO MERCADO</button>
                 <button class="btn-add" onclick="enviarListaZap('piracicaba')" style="margin-bottom: 10px; background: #b71c1c;">🚚 PIRACICABA</button>
                 <button class="btn-add" onclick="enviarListaZap('chico')" style="margin-bottom: 10px; background: #0284c7;">🧀 PEDIR PARA CHICO FRIOS</button>
                 <button class="btn-add" onclick="enviarListaZap('ambev')" style="margin-bottom: 10px; background: #ffa000;">🍺 PEDIR NA AMBEV</button>
