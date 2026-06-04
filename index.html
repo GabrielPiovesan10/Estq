@@ -33,7 +33,7 @@
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
             toast.className = `toast ${tipo}`;
-            toast.innerHTML = mensagem;
+            toast.innerHTML = message;
             
             container.appendChild(toast);
             
@@ -307,26 +307,9 @@
                     </div>
                 `;
 
-                // ABA 2: COMPRAS (LISTA ITENS CRÍTICOS COM CAMPO COMPLETAMENTE MANUAl INICIANDO EM 0)
+                // ABA 2: COMPRAS (APENAS COLETA OS ITENS CRÍTICOS)
                 if(critico) {
                     itensParaComprar.push(item);
-
-                    listaCompras.innerHTML += `
-                        <div class="card-compra" style="display: flex; flex-direction: column; gap: 8px; background: #fff8e1; border: 1px dashed #ffa000; padding: 12px; border-radius: 10px; margin-bottom: 8px; font-size: 13px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span><b>${item.nome}</b> (${item.categoria})</span>
-                                <span style="font-size: 11px; color: #b71c1c; font-weight: bold;">⚠️ Limite Mínimo!</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed rgba(255,160,0,0.3); padding-top: 8px;">
-                                <span style="font-size: 12px; color: #64748b;">Tem na prateleira: <b>${item.atual} ${item.unidade}</b> (Mín: ${item.minimo})</span>
-                                <div style="display: flex; align-items: center; gap: 5px;">
-                                    <label style="font-size: 9px; margin: 0;">PEDIR:</label>
-                                    <input type="number" id="compra-${item.id}" value="0" min="0" style="width: 65px; margin: 0; padding: 6px; text-align: center; border: 1px solid #ffa000; border-radius: 8px; font-weight: bold;">
-                                    <span style="font-size: 11px; font-weight: bold; color: #1e293b;">${item.unidade}</span>
-                                </div>
-                            </div>
-                        </div>
-                    `;
                 }
 
                 // ABA 3: CONTAGEM
@@ -342,6 +325,43 @@
                     </div>
                 `;
             });
+
+            // LÓGICA DE AGRUPAMENTO POR CATEGORIA NA ABA DE COMPRAS
+            const comprasPorCategoria = {};
+            itensParaComprar.forEach(item => {
+                if (!comprasPorCategoria[item.categoria]) {
+                    comprasPorCategoria[item.categoria] = [];
+                }
+                comprasPorCategoria[item.categoria].push(item);
+            });
+
+            // RENDERIZAÇÃO DOS ITENS DE COMPRAS SEPARADOS COM TÍTULOS
+            for (const categoria in comprasPorCategoria) {
+                listaCompras.innerHTML += `
+                    <div class="categoria-compras-header" style="font-size: 12px; font-weight: 800; color: #e65100; margin: 18px 0 8px 0; padding: 6px 12px; background: #ffe0b2; border-left: 4px solid var(--laranja); border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;">
+                        📂 SEÇÃO: ${categoria}
+                    </div>
+                `;
+
+                comprasPorCategoria[categoria].forEach(item => {
+                    listaCompras.innerHTML += `
+                        <div class="card-compra" style="display: flex; flex-direction: column; gap: 8px; background: #fff8e1; border: 1px dashed #ffa000; padding: 12px; border-radius: 10px; margin-bottom: 8px; font-size: 13px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span><b>${item.nome}</b></span>
+                                <span style="font-size: 11px; color: #b71c1c; font-weight: bold;">⚠️ Limite Mínimo!</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed rgba(255,160,0,0.3); padding-top: 8px;">
+                                <span style="font-size: 12px; color: #64748b;">Tem na prateleira: <b>${item.atual} ${item.unidade}</b> (Mín: ${item.minimo})</span>
+                                <div style="display: flex; align-items: center; gap: 5px;">
+                                    <label style="font-size: 9px; margin: 0;">PEDIR:</label>
+                                    <input type="number" id="compra-${item.id}" value="0" min="0" style="width: 65px; margin: 0; padding: 6px; text-align: center; border: 1px solid #ffa000; border-radius: 8px; font-weight: bold;">
+                                    <span style="font-size: 11px; font-weight: bold; color: #1e293b;">${item.unidade}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
 
             resumoFinanceiro.innerHTML = `R$ ${totalFinanceiro.toFixed(2)}`;
 
