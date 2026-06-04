@@ -28,12 +28,12 @@
             return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         }
 
-        // SISTEMA DE NOTIFICAÇÃO PREMIUM (SUBSTITUTO DO ALERT FEIO)
+        // SISTEMA DE NOTIFICAÇÃO PREMIUM
         window.mostrarAviso = function(mensagem, tipo = 'aviso') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
             toast.className = `toast ${tipo}`;
-            toast.innerHTML = message;
+            toast.innerHTML = mensagem;
             
             container.appendChild(toast);
             
@@ -98,7 +98,6 @@
             const nome = document.getElementById('nome').value;
             const atual = Number(document.getElementById('qtd-atual').value);
             const minimo = Number(document.getElementById('qtd-minima').value);
-            const meta = Number(document.getElementById('qtd-meta').value);
             const unidade = document.getElementById('unidade').value;
             const categoria = document.getElementById('categoria').value;
             const valor = Number(document.getElementById('valor-unitario').value);
@@ -109,19 +108,19 @@
             }
 
             const btnSubmit = document.querySelector('button[type="submit"]');
-            btnSubmit.innerHTML = "⏳ Salvando...";
+            btnSubmit.innerHTML = "⏳ Salvando no Banco de Dados...";
+            window.mostrarAviso("⏳ Cadastrando produto...", "aviso");
 
             try {
                 await fetch(URL_PLANILHA, {
                     method: 'POST',
                     mode: 'no-cors',
-                    body: JSON.stringify({ action: 'add', nome, atual, minimo, meta, unidade, categoria, valor, validade })
+                    body: JSON.stringify({ action: 'add', nome, atual, minimo, unidade, categoria, valor, validade })
                 });
                 document.getElementById('form-insumo').reset();
                 btnSubmit.innerHTML = "+ CADASTRAR NO SISTEMA";
                 window.mostrarAviso("✅ Produto cadastrado com sucesso!", "sucesso");
                 
-                // Redireciona o usuário de volta para a aba de estoque após salvar
                 mudarAba('estoque', document.querySelector('.tab-btn:first-child'));
                 window.carregarDados();
             } catch (e) { 
@@ -142,14 +141,18 @@
                 window.renderizarSistemas();
             }
 
+            window.mostrarAviso("⏳ Atualizando quantidade...", "aviso");
+
             try {
                 await fetch(URL_PLANILHA, {
                     method: 'POST',
                     mode: 'no-cors',
                     body: JSON.stringify({ action: 'update', id, atual: novoValor })
                 });
+                window.mostrarAviso("🔢 Estoque atualizado com sucesso!", "sucesso");
             } catch (e) {
                 console.error(e);
+                window.mostrarAviso("❌ Erro ao salvar alteração.", "erro");
             }
         };
 
@@ -163,22 +166,20 @@
             }
         };
 
-        // 3. SALVAR PREÇO, MINIMO, META E VALIDADE DIRETAMENTE PELO CARD
+        // 3. SALVAR PREÇO, MINIMO E VALIDADE DIRETAMENTE PELO CARD
         window.salvarPrecoValidade = async function(id) {
             const novoValor = Number(document.getElementById(`edit-valor-${id}`).value);
             const novoMinimo = Number(document.getElementById(`edit-minimo-${id}`).value);
-            const novaMeta = Number(document.getElementById(`edit-meta-${id}`).value);
             const novaValidade = document.getElementById(`edit-validade-${id}`).value;
             const btn = document.getElementById(`btn-salvar-${id}`);
             
-            btn.innerHTML = "⏳...";
-
-            // Sincroniza rápido na tela
+            btn.innerHTML = "⏳ Salvando...";
+            window.mostrarAviso("⏳ Atualizando dados do card...", "aviso");
+            
             const index = window.insumosDados.findIndex(item => item.id === id);
             if(index !== -1) {
                 window.insumosDados[index].valor = novoValor;
                 window.insumosDados[index].minimo = novoMinimo;
-                window.insumosDados[index].meta = novaMeta;
                 window.insumosDados[index].validade = novaValidade;
                 window.renderizarSistemas();
             }
@@ -187,7 +188,7 @@
                 await fetch(URL_PLANILHA, {
                     method: 'POST',
                     mode: 'no-cors',
-                    body: JSON.stringify({ action: 'update', id, valor: novoValor, minimo: novoMinimo, meta: novaMeta, validade: novaValidade })
+                    body: JSON.stringify({ action: 'update', id, valor: novoValor, minimo: novoMinimo, validade: novaValidade })
                 });
                 window.mostrarAviso("✏️ Dados atualizados com sucesso!", "sucesso");
             } catch (e) {
@@ -199,6 +200,7 @@
         // 4. FINALIZAR CONTAGEM (AUDITORIA)
         window.salvarContagem = async function(btn) {
             btn.innerHTML = "⏳ Salvando...";
+            window.mostrarAviso("⏳ Sincronizando contagem real...", "aviso");
             let atualizacoes = [];
 
             for (let id of window.idsContagem) {
@@ -267,14 +269,14 @@
 
                 window.idsContagem.push(item.id);
 
-                // ABA 1: ESTOQUE (COM MINI FORM DE FÁCIL ACESSO PARA VALOR, MINIMO, META E VALIDADE)
+                // ABA 1: ESTOQUE
                 listaInsumos.innerHTML += `
                     <div class="card-item ${critico ? 'critico' : ''}">
                         <div class="card-main-row">
                             <div class="info">
                                 <span class="categoria-tag">${item.categoria}</span>
                                 <span class="nome">${item.nome} ${alertaValidade}</span>
-                                <span class="detalhe">${item.atual} ${item.unidade} | Mín: ${item.minimo} | Meta: ${item.meta || 0} | Custo: R$ ${(item.valor || 0).toFixed(2)}</span>
+                                <span class="detalhe">${item.atual} ${item.unidade} | Mín. Alerta: ${item.minimo} | Custo: R$ ${(item.valor || 0).toFixed(2)}</span>
                                 <span class="detalhe subtotal-cor">Subtotal: R$ ${(item.atual * (item.valor || 0)).toFixed(2)}</span>
                                 <span class="detalhe data-val-cor">Validade: ${textoValidadeFormatado}</span>
                             </div>
@@ -286,7 +288,7 @@
                         </div>
                         
                         <div class="edit-panel" id="edit-panel-${item.id}" style="display:none;">
-                            <div class="edit-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+                            <div class="edit-grid" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 8px;">
                                 <div>
                                     <label>Custo Unit. (R$)</label>
                                     <input type="number" step="0.01" id="edit-valor-${item.id}" value="${item.valor || 0}" style="margin-bottom:0;">
@@ -294,10 +296,6 @@
                                 <div>
                                     <label>Mín. Alerta</label>
                                     <input type="number" id="edit-minimo-${item.id}" value="${item.minimo || 0}" style="margin-bottom:0;">
-                                </div>
-                                <div>
-                                    <label>Meta Estoque</label>
-                                    <input type="number" id="edit-meta-${item.id}" value="${item.meta || 0}" style="margin-bottom:0;">
                                 </div>
                                 <div>
                                     <label>Vencimento</label>
@@ -309,19 +307,23 @@
                     </div>
                 `;
 
-                // ABA 2: COMPRAS (MOSTRA O QUE FALTA E PERMITE DIGITAR A QUANTIDADE MANUALMENTE)
+                // ABA 2: COMPRAS (LISTA ITENS CRÍTICOS COM CAMPO COMPLETAMENTE MANUAl INICIANDO EM 0)
                 if(critico) {
                     itensParaComprar.push(item);
-                    const metaEstoque = item.meta || 0;
-                    const sugestao = (metaEstoque - item.atual) > 0 ? (metaEstoque - item.atual) : 1;
 
                     listaCompras.innerHTML += `
-                        <div class="card-compra" style="display: flex; justify-content: space-between; align-items: center; background: #fff8e1; border: 1px dashed #ffa000; padding: 12px; border-radius: 10px; margin-bottom: 8px; font-size: 13px;">
-                            <span style="flex: 1;"><b>${item.nome}</b> (${item.categoria})</span>
-                            <div style="display: flex; align-items: center; gap: 5px;">
-                                <label style="font-size: 9px; margin: 0;">QTD:</label>
-                                <input type="number" id="compra-${item.id}" value="${sugestao}" style="width: 65px; margin: 0; padding: 6px; text-align: center; border: 1px solid #ffa000; border-radius: 8px; font-weight: bold;">
-                                <span style="font-size: 11px; font-weight: bold; color: #64748b;">${item.unidade}</span>
+                        <div class="card-compra" style="display: flex; flex-direction: column; gap: 8px; background: #fff8e1; border: 1px dashed #ffa000; padding: 12px; border-radius: 10px; margin-bottom: 8px; font-size: 13px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span><b>${item.nome}</b> (${item.categoria})</span>
+                                <span style="font-size: 11px; color: #b71c1c; font-weight: bold;">⚠️ Limite Mínimo!</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed rgba(255,160,0,0.3); padding-top: 8px;">
+                                <span style="font-size: 12px; color: #64748b;">Tem na prateleira: <b>${item.atual} ${item.unidade}</b> (Mín: ${item.minimo})</span>
+                                <div style="display: flex; align-items: center; gap: 5px;">
+                                    <label style="font-size: 9px; margin: 0;">PEDIR:</label>
+                                    <input type="number" id="compra-${item.id}" value="0" min="0" style="width: 65px; margin: 0; padding: 6px; text-align: center; border: 1px solid #ffa000; border-radius: 8px; font-weight: bold;">
+                                    <span style="font-size: 11px; font-weight: bold; color: #1e293b;">${item.unidade}</span>
+                                </div>
                             </div>
                         </div>
                     `;
@@ -359,7 +361,6 @@
                 else if (tipo === 'ifish') filtrados = itensParaComprar.filter(i => i.categoria === 'Ifish');
                 else if (tipo === 'lagoazul') filtrados = itensParaComprar.filter(i => i.categoria === 'Lago Azul');
                 else if (tipo === 'mercado') {
-                    // Filtra as 4 categorias solicitadas e ordena para deixar a mensagem organizada
                     filtrados = itensParaComprar.filter(i => ['Material de Limpeza', 'Mercado', 'Verduras', 'Legumes'].includes(i.categoria));
                     filtrados.sort((a, b) => a.categoria.localeCompare(b.categoria));
                 }
@@ -370,7 +371,6 @@
 
                 let msg = `*📋 SOLICITAÇÃO DE MERCADORIA - SEO PACHECO*\n\n`;
                 
-                // LÓGICA DE COMPRA MANUAL: Puxa a quantidade digitada na tela pelo usuário
                 let ultimaCategoria = "";
                 let itensIncluidos = 0;
 
@@ -380,7 +380,6 @@
 
                     if(qtdDefinida > 0) {
                         itensIncluidos++;
-                        // Se for mercado, separa visualmente por títulos de categorias
                         if (tipo === 'mercado' && i.categoria !== ultimaCategoria) {
                             msg += `\n*[${i.categoria.toUpperCase()}]*\n`;
                             ultimaCategoria = i.categoria;
@@ -390,9 +389,11 @@
                 });
                 
                 if(itensIncluidos === 0) {
-                    return window.mostrarAviso("⚠️ Digite uma quantidade maior que zero para os itens que deseja pedir.", "aviso");
+                    return window.mostrarAviso("⚠️ Digite uma quantidade maior que zero para enviar o pedido.", "aviso");
                 }
                 
+                window.mostrarAviso("🚀 Abrindo WhatsApp...", "sucesso");
+
                 let linkZap = telefone 
                     ? `https://api.whatsapp.com/send?phone=${telefone}&text=${encodeURIComponent(msg)}`
                     : `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
@@ -489,8 +490,7 @@
         .card-item.critico .btn-save-edit { background: white; color: var(--vermelho); }
 
         .controles-contagem input { width: 80px; text-align: center; margin: 0; padding: 10px; font-weight: bold; background: #f1f5f9; border: none; border-radius: 8px; }
-        .card-compra { background: #fff8e1; border: 1px dashed #ffa000; padding: 12px; border-radius: 10px; margin-bottom: 8px; font-size: 13px; }
-
+        
         .aba-content { display: none; }
         .aba-content.active { display: block; animation: fadeIn 0.4s ease; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -554,10 +554,6 @@
                         <div style="flex:1">
                             <label>Mín. Alerta</label>
                             <input type="number" id="qtd-minima" required>
-                        </div>
-                        <div style="flex:1">
-                            <label>Meta Estoque</label>
-                            <input type="number" id="qtd-meta" required>
                         </div>
                     </div>
 
