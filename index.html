@@ -33,7 +33,7 @@
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
             toast.className = `toast ${tipo}`;
-            toast.innerHTML = message;
+            toast.innerHTML = mensagem;
             
             container.appendChild(toast);
             
@@ -201,7 +201,7 @@
         window.salvarContagem = async function(btn) {
             btn.innerHTML = "⏳ Salvando...";
             window.mostrarAviso("⏳ Sincronizando contagem real...", "aviso");
-            let atualizacoes = [];
+            let夹tualizacoes = [];
 
             for (let id of window.idsContagem) {
                 let inputContagem = document.getElementById(`count-${id}`);
@@ -225,6 +225,65 @@
                 btn.innerHTML = "💾 FINALIZAR CONTAGEM";
                 window.mostrarAviso("❌ Erro ao salvar contagem.", "erro");
             }
+        };
+
+        // DISPARAR MENSAGEM PARA O WHATSAPP (ISOLADA E PROTEGIDA EXTERNAMENTE)
+        window.enviarListaZap = function(tipo) {
+            const itensParaComprar = window.insumosDados.filter(item => item.atual <= item.minimo);
+
+            if(itensParaComprar.length === 0) {
+                return window.mostrarAviso("📦 O estoque está 100% em dia!", "sucesso");
+            }
+            
+            let filtrados = [];
+            let telefone = ""; 
+
+            if (tipo === 'piracicaba') filtrados = itensParaComprar.filter(i => i.categoria === 'Piracicaba');
+            else if (tipo === 'chico') filtrados = itensParaComprar.filter(i => i.categoria === 'Chico');
+            else if (tipo === 'ambev') filtrados = itensParaComprar.filter(i => i.categoria === 'Ambev');
+            else if (tipo === 'coca') filtrados = itensParaComprar.filter(i => i.categoria === 'Coca-Cola');
+            else if (tipo === 'deck') filtrados = itensParaComprar.filter(i => i.categoria === 'Deck');
+            else if (tipo === 'ifish') filtrados = itensParaComprar.filter(i => i.categoria === 'Ifish');
+            else if (tipo === 'lagoazul') filtrados = itensParaComprar.filter(i => i.categoria === 'Lago Azul');
+            else if (tipo === 'mercado') {
+                filtrados = itensParaComprar.filter(i => ['Material de Limpeza', 'Mercado', 'Verduras', 'Legumes'].includes(i.categoria));
+                filtrados.sort((a, b) => a.categoria.localeCompare(b.categoria));
+            }
+
+            if(filtrados.length === 0) {
+                return window.mostrarAviso("⚠️ Nenhum item crítico encontrado para este fornecedor.", "aviso");
+            }
+
+            let msg = `*📋 SOLICITAÇÃO DE MERCADORIA - SEO PACHECO*\n\n`;
+            
+            let ultimaCategoria = "";
+            let itensIncluidos = 0;
+
+            filtrados.forEach(i => {
+                const inputQtd = document.getElementById(`compra-${i.id}`);
+                const qtdDefinida = inputQtd ? Number(inputQtd.value) : 0;
+
+                if(qtdDefinida > 0) {
+                    itensIncluidos++;
+                    if (tipo === 'mercado' && i.categoria !== ultimaCategoria) {
+                        msg += `\n*[${i.categoria.toUpperCase()}]*\n`;
+                        ultimaCategoria = i.categoria;
+                    }
+                    msg += `• ${i.nome} - ${qtdDefinida} ${i.unidade}\n`;
+                }
+            });
+            
+            if(itensIncluidos === 0) {
+                return window.mostrarAviso("⚠️ Digite uma quantidade maior que zero para enviar o pedido.", "aviso");
+            }
+            
+            window.mostrarAviso("🚀 Abrindo WhatsApp...", "sucesso");
+
+            let linkZap = telefone 
+                ? `https://api.whatsapp.com/send?phone=${telefone}&text=${encodeURIComponent(msg)}`
+                : `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
+
+            window.location.href = linkZap;
         };
 
         // RENDERIZAR E FILTRAR OS DADOS NA TELA
@@ -307,7 +366,7 @@
                     </div>
                 `;
 
-                // ABA 2: COMPRAS (APENAS COLETA OS ITENS CRÍTICOS)
+                // ABA 2: COMPRAS (COLHEITA DE ITENS CRÍTICOS)
                 if(critico) {
                     itensParaComprar.push(item);
                 }
@@ -364,62 +423,6 @@
             }
 
             resumoFinanceiro.innerHTML = `R$ ${totalFinanceiro.toFixed(2)}`;
-
-            window.enviarListaZap = function(tipo) {
-                if(itensParaComprar.length === 0) {
-                    return window.mostrarAviso("📦 O estoque está 100% em dia!", "sucesso");
-                }
-                
-                let filtrados = [];
-                let telefone = ""; 
-
-                if (tipo === 'piracicaba') filtrados = itensParaComprar.filter(i => i.categoria === 'Piracicaba');
-                else if (tipo === 'chico') filtrados = itensParaComprar.filter(i => i.categoria === 'Chico');
-                else if (tipo === 'ambev') filtrados = itensParaComprar.filter(i => i.categoria === 'Ambev');
-                else if (tipo === 'coca') filtrados = itensParaComprar.filter(i => i.categoria === 'Coca-Cola');
-                else if (tipo === 'deck') filtrados = itensParaComprar.filter(i => i.categoria === 'Deck');
-                else if (tipo === 'ifish') filtrados = itensParaComprar.filter(i => i.categoria === 'Ifish');
-                else if (tipo === 'lagoazul') filtrados = itensParaComprar.filter(i => i.categoria === 'Lago Azul');
-                else if (tipo === 'mercado') {
-                    filtrados = itensParaComprar.filter(i => ['Material de Limpeza', 'Mercado', 'Verduras', 'Legumes'].includes(i.categoria));
-                    filtrados.sort((a, b) => a.categoria.localeCompare(b.categoria));
-                }
-
-                if(filtrados.length === 0) {
-                    return window.mostrarAviso("⚠️ Nenhum item crítico encontrado para este fornecedor.", "aviso");
-                }
-
-                let msg = `*📋 SOLICITAÇÃO DE MERCADORIA - SEO PACHECO*\n\n`;
-                
-                let ultimaCategoria = "";
-                let itensIncluidos = 0;
-
-                filtrados.forEach(i => {
-                    const inputQtd = document.getElementById(`compra-${i.id}`);
-                    const qtdDefinida = inputQtd ? Number(inputQtd.value) : 0;
-
-                    if(qtdDefinida > 0) {
-                        itensIncluidos++;
-                        if (tipo === 'mercado' && i.categoria !== ultimaCategoria) {
-                            msg += `\n*[${i.categoria.toUpperCase()}]*\n`;
-                            ultimaCategoria = i.categoria;
-                        }
-                        msg += `• ${i.nome} - ${qtdDefinida} ${i.unidade}\n`;
-                    }
-                });
-                
-                if(itensIncluidos === 0) {
-                    return window.mostrarAviso("⚠️ Digite uma quantidade maior que zero para enviar o pedido.", "aviso");
-                }
-                
-                window.mostrarAviso("🚀 Abrindo WhatsApp...", "sucesso");
-
-                let linkZap = telefone 
-                    ? `https://api.whatsapp.com/send?phone=${telefone}&text=${encodeURIComponent(msg)}`
-                    : `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
-
-                window.location.href = linkZap;
-            };
         };
 
         window.onload = () => {
@@ -628,14 +631,14 @@
                 <h2 style="font-size:16px; color:var(--vermelho); margin-top:0;">ITENS PARA REPOSIÇÃO</h2>
                 <div id="render-compras" style="margin-bottom:25px;"></div>
                 
-                <button class="btn-add" onclick="enviarListaZap('deck')" style="margin-bottom: 10px; background: #fb8c00;">🔥 PEDIR NO DECK</button>
-                <button class="btn-add" onclick="enviarListaZap('mercado')" style="margin-bottom: 10px; background: #2e7d32;">🛒 MERCADO</button>
-                <button class="btn-add" onclick="enviarListaZap('piracicaba')" style="margin-bottom: 10px; background: #b71c1c;">🚚 PIRACICABA</button>
-                <button class="btn-add" onclick="enviarListaZap('chico')" style="margin-bottom: 10px; background: #0284c7;">🧀 PEDIR PARA CHICO FRIOS</button>
-                <button class="btn-add" onclick="enviarListaZap('ambev')" style="margin-bottom: 10px; background: #ffa000;">🍺 PEDIR NA AMBEV</button>
-                <button class="btn-add" onclick="enviarListaZap('coca')" style="margin-bottom: 10px; background: #d32f2f;">🥤 PEDIR NA COCA-COLA</button>
-                <button class="btn-add" onclick="enviarListaZap('ifish')" style="margin-bottom: 10px; background: #0d9488;">🐟 PEDIR NO IFISH</button>
-                <button class="btn-add" onclick="enviarListaZap('lagoazul')" style="margin-bottom: 10px; background: #4f46e5;">🏞️ PEDIR NO LAGO AZUL</button>
+                <button class="btn-add" onclick="window.enviarListaZap('deck')" style="margin-bottom: 10px; background: #fb8c00;">🔥 PEDIR NO DECK</button>
+                <button class="btn-add" onclick="window.enviarListaZap('mercado')" style="margin-bottom: 10px; background: #2e7d32;">🛒 MERCADO</button>
+                <button class="btn-add" onclick="window.enviarListaZap('piracicaba')" style="margin-bottom: 10px; background: #b71c1c;">🚚 PIRACICABA</button>
+                <button class="btn-add" onclick="window.enviarListaZap('chico')" style="margin-bottom: 10px; background: #0284c7;">🧀 PEDIR PARA CHICO FRIOS</button>
+                <button class="btn-add" onclick="window.enviarListaZap('ambev')" style="margin-bottom: 10px; background: #ffa000;">🍺 PEDIR NA AMBEV</button>
+                <button class="btn-add" onclick="window.enviarListaZap('coca')" style="margin-bottom: 10px; background: #d32f2f;">🥤 PEDIR NA COCA-COLA</button>
+                <button class="btn-add" onclick="window.enviarListaZap('ifish')" style="margin-bottom: 10px; background: #0d9488;">🐟 PEDIR NO IFISH</button>
+                <button class="btn-add" onclick="window.enviarListaZap('lagoazul')" style="margin-bottom: 10px; background: #4f46e5;">🏞️ PEDIR NO LAGO AZUL</button>
             </div>
         </div>
 
