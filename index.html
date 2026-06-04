@@ -190,7 +190,7 @@
                     mode: 'no-cors',
                     body: JSON.stringify({ action: 'update', id, valor: novoValor, minimo: novoMinimo, validade: novaValidade })
                 });
-                window.mostrarAviso("✏️ Dados updated com sucesso!", "sucesso");
+                window.mostrarAviso("✏️ Dados atualizados com sucesso!", "sucesso");
             } catch (e) {
                 console.error(e);
                 window.mostrarAviso("❌ Erro ao atualizar dados.", "erro");
@@ -227,7 +227,7 @@
             }
         };
 
-        // DISPARAR MENSAGEM PARA O WHATSAPP (SUPORTE A EMBALAGENS ADICIONADO)
+        // DISPARAR MENSAGEM PARA O WHATSAPP (MERCADO E EMBALAGENS FORMATADOS COM CABEÇALHO)
         window.enviarListaZap = function(tipo) {
             const itensParaComprar = window.insumosDados.filter(item => item.atual <= item.minimo);
 
@@ -266,7 +266,8 @@
 
                 if(qtdDefinida > 0) {
                     itensIncluidos++;
-                    if (tipo === 'mercado' && i.categoria !== ultimaCategoria) {
+                    // ADICIONA O TÍTULO EM NEGRITO SE FOR MERCADO OU EMBALAGENS
+                    if ((tipo === 'mercado' || tipo === 'embalagens') && i.categoria !== ultimaCategoria) {
                         msg += `\n*[${i.categoria.toUpperCase()}]*\n`;
                         ultimaCategoria = i.categoria;
                     }
