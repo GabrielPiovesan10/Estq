@@ -190,7 +190,7 @@
                     mode: 'no-cors',
                     body: JSON.stringify({ action: 'update', id, valor: novoValor, minimo: novoMinimo, validade: novaValidade })
                 });
-                window.mostrarAviso("✏️ Dados atualizados com sucesso!", "sucesso");
+                window.mostrarAviso("✏️ Dados updated com sucesso!", "sucesso");
             } catch (e) {
                 console.error(e);
                 window.mostrarAviso("❌ Erro ao atualizar dados.", "erro");
@@ -201,7 +201,7 @@
         window.salvarContagem = async function(btn) {
             btn.innerHTML = "⏳ Salvando...";
             window.mostrarAviso("⏳ Sincronizando contagem real...", "aviso");
-            let夹tualizacoes = [];
+            let atualizacoes = [];
 
             for (let id of window.idsContagem) {
                 let inputContagem = document.getElementById(`count-${id}`);
@@ -227,7 +227,7 @@
             }
         };
 
-        // DISPARAR MENSAGEM PARA O WHATSAPP (ISOLADA E PROTEGIDA EXTERNAMENTE)
+        // DISPARAR MENSAGEM PARA O WHATSAPP (SUPORTE A EMBALAGENS ADICIONADO)
         window.enviarListaZap = function(tipo) {
             const itensParaComprar = window.insumosDados.filter(item => item.atual <= item.minimo);
 
@@ -245,6 +245,7 @@
             else if (tipo === 'deck') filtrados = itensParaComprar.filter(i => i.categoria === 'Deck');
             else if (tipo === 'ifish') filtrados = itensParaComprar.filter(i => i.categoria === 'Ifish');
             else if (tipo === 'lagoazul') filtrados = itensParaComprar.filter(i => i.categoria === 'Lago Azul');
+            else if (tipo === 'embalagens') filtrados = itensParaComprar.filter(i => i.categoria === 'Embalagens');
             else if (tipo === 'mercado') {
                 filtrados = itensParaComprar.filter(i => ['Material de Limpeza', 'Mercado', 'Verduras', 'Legumes'].includes(i.categoria));
                 filtrados.sort((a, b) => a.categoria.localeCompare(b.categoria));
@@ -394,11 +395,32 @@
                 comprasPorCategoria[item.categoria].push(item);
             });
 
-            // RENDERIZAÇÃO DOS ITENS DE COMPRAS SEPARADOS COM TÍTULOS
+            // DICIONÁRIO DE CONFIGURAÇÃO VISUAL E DE PARÂMETROS DOS BOTÕES
+            const mapeamentoBotoes = {
+                'Deck': { tipo: 'deck', texto: '🔥 Pedir no Deck', cor: '#fb8c00' },
+                'Mercado': { tipo: 'mercado', texto: '🛒 Pedir Mercado', cor: '#2e7d32' },
+                'Material de Limpeza': { tipo: 'mercado', texto: '🧼 Pedir Limpeza', cor: '#2e7d32' },
+                'Verduras': { tipo: 'mercado', texto: '🥬 Pedir Verduras', cor: '#2e7d32' },
+                'Legumes': { tipo: 'mercado', texto: '🥕 Pedir Legumes', cor: '#2e7d32' },
+                'Piracicaba': { tipo: 'piracicaba', texto: '🚚 Pedir Piracicaba', cor: '#b71c1c' },
+                'Chico': { tipo: 'chico', texto: '🧀 Pedir Chico Frios', cor: '#0284c7' },
+                'Ambev': { tipo: 'ambev', texto: '🍺 Pedir Ambev', cor: '#ffa000' },
+                'Coca-Cola': { tipo: 'coca', texto: '🥤 Pedir Coca-Cola', cor: '#d32f2f' },
+                'Ifish': { tipo: 'ifish', texto: '🐟 Pedir iFish', cor: '#0d9488' },
+                'Lago Azul': { tipo: 'lagoazul', texto: '🏞️ Pedir Lago Azul', cor: '#4f46e5' },
+                'Embalagens': { tipo: 'embalagens', texto: '📦 Pedir Embalagens', cor: '#7c3aed' }
+            };
+
+            // RENDERIZAÇÃO DOS ITENS COM BOTÕES ACOPLADOS DIRETAMENTE NOS CABEÇALHOS
             for (const categoria in comprasPorCategoria) {
+                const configBotao = mapeamentoBotoes[categoria] || { tipo: categoria.toLowerCase(), texto: '💬 Enviar Pedido', cor: '#64748b' };
+
                 listaCompras.innerHTML += `
-                    <div class="categoria-compras-header" style="font-size: 12px; font-weight: 800; color: #e65100; margin: 18px 0 8px 0; padding: 6px 12px; background: #ffe0b2; border-left: 4px solid var(--laranja); border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;">
-                        📂 SEÇÃO: ${categoria}
+                    <div class="categoria-compras-header" style="display: flex; justify-content: space-between; align-items: center; margin: 18px 0 8px 0; padding: 6px 12px; background: #ffe0b2; border-left: 4px solid var(--laranja); border-radius: 8px;">
+                        <span style="font-size: 11px; font-weight: 800; color: #e65100; text-transform: uppercase; letter-spacing: 0.5px;">📂 SEÇÃO: ${categoria}</span>
+                        <button onclick="window.enviarListaZap('${configBotao.tipo}')" style="background: ${configBotao.cor}; color: white; border: none; padding: 6px 12px; border-radius: 8px; font-size: 10px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-transform: uppercase;">
+                            ${configBotao.texto}
+                        </button>
                     </div>
                 `;
 
@@ -630,15 +652,6 @@
             <div class="painel-card">
                 <h2 style="font-size:16px; color:var(--vermelho); margin-top:0;">ITENS PARA REPOSIÇÃO</h2>
                 <div id="render-compras" style="margin-bottom:25px;"></div>
-                
-                <button class="btn-add" onclick="window.enviarListaZap('deck')" style="margin-bottom: 10px; background: #fb8c00;">🔥 PEDIR NO DECK</button>
-                <button class="btn-add" onclick="window.enviarListaZap('mercado')" style="margin-bottom: 10px; background: #2e7d32;">🛒 MERCADO</button>
-                <button class="btn-add" onclick="window.enviarListaZap('piracicaba')" style="margin-bottom: 10px; background: #b71c1c;">🚚 PIRACICABA</button>
-                <button class="btn-add" onclick="window.enviarListaZap('chico')" style="margin-bottom: 10px; background: #0284c7;">🧀 PEDIR PARA CHICO FRIOS</button>
-                <button class="btn-add" onclick="window.enviarListaZap('ambev')" style="margin-bottom: 10px; background: #ffa000;">🍺 PEDIR NA AMBEV</button>
-                <button class="btn-add" onclick="window.enviarListaZap('coca')" style="margin-bottom: 10px; background: #d32f2f;">🥤 PEDIR NA COCA-COLA</button>
-                <button class="btn-add" onclick="window.enviarListaZap('ifish')" style="margin-bottom: 10px; background: #0d9488;">🐟 PEDIR NO IFISH</button>
-                <button class="btn-add" onclick="window.enviarListaZap('lagoazul')" style="margin-bottom: 10px; background: #4f46e5;">🏞️ PEDIR NO LAGO AZUL</button>
             </div>
         </div>
 
