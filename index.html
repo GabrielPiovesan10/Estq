@@ -33,7 +33,7 @@
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
             toast.className = `toast ${tipo}`;
-            toast.innerHTML = mensagem;
+            toast.innerHTML = message;
             
             container.appendChild(toast);
             
@@ -309,18 +309,22 @@
                     </div>
                 `;
 
-                // ABA 2: COMPRAS (CÁLCULO AUTOMÁTICO PARA ABASTECER ATÉ A META CONFIGURADA PELO APP)
+                // ABA 2: COMPRAS (MOSTRA O QUE FALTA E PERMITE DIGITAR A QUANTIDADE MANUALMENTE)
                 if(critico) {
                     itensParaComprar.push(item);
                     const metaEstoque = item.meta || 0;
-                    const faltam = metaEstoque - item.atual;
-                    if(faltam > 0) {
-                        listaCompras.innerHTML += `
-                            <div class="card-compra">
-                                <span><b>${item.nome}</b> (${item.categoria}) | Comprar: <b>${faltam} ${item.unidade}</b></span>
+                    const sugestao = (metaEstoque - item.atual) > 0 ? (metaEstoque - item.atual) : 1;
+
+                    listaCompras.innerHTML += `
+                        <div class="card-compra" style="display: flex; justify-content: space-between; align-items: center; background: #fff8e1; border: 1px dashed #ffa000; padding: 12px; border-radius: 10px; margin-bottom: 8px; font-size: 13px;">
+                            <span style="flex: 1;"><b>${item.nome}</b> (${item.categoria})</span>
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <label style="font-size: 9px; margin: 0;">QTD:</label>
+                                <input type="number" id="compra-${item.id}" value="${sugestao}" style="width: 65px; margin: 0; padding: 6px; text-align: center; border: 1px solid #ffa000; border-radius: 8px; font-weight: bold;">
+                                <span style="font-size: 11px; font-weight: bold; color: #64748b;">${item.unidade}</span>
                             </div>
-                        `;
-                    }
+                        </div>
+                    `;
                 }
 
                 // ABA 3: CONTAGEM
@@ -366,20 +370,28 @@
 
                 let msg = `*📋 SOLICITAÇÃO DE MERCADORIA - SEO PACHECO*\n\n`;
                 
-                // LÓGICA DE COMPRA DEFINITIVA: Abastece até a meta configurada para atingir o mundo ideal da prateleira
+                // LÓGICA DE COMPRA MANUAL: Puxa a quantidade digitada na tela pelo usuário
                 let ultimaCategoria = "";
+                let itensIncluidos = 0;
+
                 filtrados.forEach(i => {
-                    const metaEstoqueNoZap = i.meta || 0;
-                    const faltamNoZap = metaEstoqueNoZap - i.atual;
-                    if(faltamNoZap > 0) {
+                    const inputQtd = document.getElementById(`compra-${i.id}`);
+                    const qtdDefinida = inputQtd ? Number(inputQtd.value) : 0;
+
+                    if(qtdDefinida > 0) {
+                        itensIncluidos++;
                         // Se for mercado, separa visualmente por títulos de categorias
                         if (tipo === 'mercado' && i.categoria !== ultimaCategoria) {
                             msg += `\n*[${i.categoria.toUpperCase()}]*\n`;
                             ultimaCategoria = i.categoria;
                         }
-                        msg += `• ${i.nome} - ${faltamNoZap} ${i.unidade}\n`;
+                        msg += `• ${i.nome} - ${qtdDefinida} ${i.unidade}\n`;
                     }
                 });
+                
+                if(itensIncluidos === 0) {
+                    return window.mostrarAviso("⚠️ Digite uma quantidade maior que zero para os itens que deseja pedir.", "aviso");
+                }
                 
                 let linkZap = telefone 
                     ? `https://api.whatsapp.com/send?phone=${telefone}&text=${encodeURIComponent(msg)}`
@@ -553,8 +565,9 @@
                         <div style="flex:1">
                             <label>Unidade</label>
                             <select id="unidade">
-                                <option value="KG">KG</option>
+                                <option value="CX">CX (CAIXA)</option>
                                 <option value="UN">UN</option>
+                                <option value="KG">KG</option>
                                 <option value="LT">LT</option>
                                 <option value="FD">FARDO</option>
                             </select>
