@@ -13,14 +13,12 @@
 
         // =================================================================
         // CONFIGURAÇÃO DO BANCO DE DADOS (GOOGLE SHEETS)
-        // Cole aqui a URL do Web App gerada no seu Google Apps Script
         // =================================================================
         const URL_PLANILHA = "https://script.google.com/macros/s/AKfycbyA3-yGpEMT9_oZgDm8WK4AB_a-yrlfbgxgxVVAvJ0AjUJLCaLALAkZh4RodLy-l8fkiw/exec";
 
-        window.insumosDados = []; // Cache local dos produtos
+        window.insumosDados = []; 
         window.idsContagem = []; 
 
-        // FUNÇÃO AUXILIAR DE CRIPTOGRAFIA (SHA-256 NATIVO)
         async function gerarHash(string) {
             const msgBuffer = new TextEncoder().encode(string);
             const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -28,7 +26,6 @@
             return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         }
 
-        // SISTEMA DE NOTIFICAÇÃO PREMIUM
         window.mostrarAviso = function(mensagem, tipo = 'aviso') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
@@ -37,17 +34,14 @@
             
             container.appendChild(toast);
             
-            // Trigger da animação de entrada
             setTimeout(() => { toast.classList.add('show'); }, 50);
             
-            // Remove automaticamente após 3 segundos
             setTimeout(() => {
                 toast.classList.remove('show');
                 setTimeout(() => { toast.remove(); }, 400);
             }, 3000);
         };
 
-        // TRAVA DE SEGURANÇA COM TELA DE LOGIN PERSONALIZADA
         window.verificarAcesso = async function() {
             if (localStorage.getItem('gptech_logado') === 'true') {
                 document.getElementById('login-screen').style.display = 'none';
@@ -56,7 +50,6 @@
             }
         };
 
-        // FUNÇÃO EXECUTADA AO CLICAR EM ENTRAR NO LOGIN
         window.fazerLogin = async function() {
             const inputSenha = document.getElementById('senha-input').value;
             const msgErro = document.getElementById('login-error');
@@ -81,7 +74,6 @@
             }
         };
 
-        // CARREGAR DADOS DA PLANILHA
         window.carregarDados = async function() {
             try {
                 const response = await fetch(`${URL_PLANILHA}?action=read`);
@@ -93,7 +85,6 @@
             }
         };
 
-        // 1. ADICIONAR INSUMO NA PLANILHA
         window.adicionarInsumo = async function() {
             const nome = document.getElementById('nome').value;
             const atual = Number(document.getElementById('qtd-atual').value);
@@ -108,7 +99,7 @@
             }
 
             const btnSubmit = document.querySelector('button[type="submit"]');
-            btnSubmit.innerHTML = "⏳ Salvando no Banco de Dados...";
+            btnSubmit.innerHTML = "⏳ Salvando...";
             window.mostrarAviso("⏳ Cadastrando produto...", "aviso");
 
             try {
@@ -130,7 +121,6 @@
             }
         };
 
-        // 2. ALTERAR ESTOQUE (+ ou -)
         window.alterarEstoque = async function(id, atual, valor) {
             const novoValor = atual + valor;
             if(novoValor < 0) return;
@@ -149,14 +139,13 @@
                     mode: 'no-cors',
                     body: JSON.stringify({ action: 'update', id, atual: novoValor })
                 });
-                window.mostrarAviso("🔢 Estoque atualizado com sucesso!", "sucesso");
+                window.mostrarAviso("🔢 Estoque atualizado!", "sucesso");
             } catch (e) {
                 console.error(e);
                 window.mostrarAviso("❌ Erro ao salvar alteração.", "erro");
             }
         };
 
-        // INTERFACE: TOGGLE DO MINI PAINEL DE EDIÇÃO
         window.togglePainelEdicao = function(id) {
             const painel = document.getElementById(`edit-panel-${id}`);
             if (painel.style.display === "none" || !painel.style.display) {
@@ -166,7 +155,6 @@
             }
         };
 
-        // 3. SALVAR PREÇO, MINIMO E VALIDADE DIRETAMENTE PELO CARD
         window.salvarPrecoValidade = async function(id) {
             const novoValor = Number(document.getElementById(`edit-valor-${id}`).value);
             const novoMinimo = Number(document.getElementById(`edit-minimo-${id}`).value);
@@ -197,10 +185,40 @@
             }
         };
 
-        // 4. FINALIZAR CONTAGEM (AUDITORIA)
+        // =================================================================
+        // NOVA FUNÇÃO: APAGAR PRODUTO
+        // =================================================================
+        window.apagarProduto = async function(id) {
+            // Confirmação de segurança para não apagar sem querer
+            const confirmacao = confirm("⚠️ Tem certeza que deseja apagar este produto permanentemente do estoque?");
+            if (!confirmacao) return;
+
+            const btn = document.getElementById(`btn-apagar-${id}`);
+            if(btn) btn.innerHTML = "⏳ Apagando...";
+            window.mostrarAviso("⏳ Removendo produto do sistema...", "aviso");
+
+            // Atualiza a tela imediatamente (remove o card da lista)
+            window.insumosDados = window.insumosDados.filter(item => item.id !== id);
+            window.renderizarSistemas();
+
+            try {
+                await fetch(URL_PLANILHA, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    // Envia a ação 'delete' para o seu Apps Script
+                    body: JSON.stringify({ action: 'delete', id: id })
+                });
+                window.mostrarAviso("🗑️ Produto apagado com sucesso!", "sucesso");
+            } catch (e) {
+                console.error(e);
+                window.mostrarAviso("❌ Erro ao apagar produto no banco.", "erro");
+                window.carregarDados(); // Recarrega os dados para garantir consistência em caso de erro
+            }
+        };
+
         window.salvarContagem = async function(btn) {
             btn.innerHTML = "⏳ Salvando...";
-            window.mostrarAviso("⏳ Sincronizando contagem real...", "aviso");
+            window.mostrarAviso("⏳ Sincronizando contagem...", "aviso");
             let atualizacoes = [];
 
             for (let id of window.idsContagem) {
@@ -216,7 +234,7 @@
                     mode: 'no-cors',
                     body: JSON.stringify({ action: 'bulkUpdate', dados: atualizacoes })
                 });
-                window.mostrarAviso("🚀 Contagem real sincronizada com sucesso!", "sucesso");
+                window.mostrarAviso("🚀 Contagem real sincronizada!", "sucesso");
                 btn.innerHTML = "💾 FINALIZAR CONTAGEM";
                 mudarAba('estoque', document.querySelector('.tab-btn:first-child'));
                 window.carregarDados();
@@ -227,7 +245,6 @@
             }
         };
 
-        // DISPARAR MENSAGEM PARA O WHATSAPP (MERCADO E EMBALAGENS FORMATADOS COM CABEÇALHO)
         window.enviarListaZap = function(tipo) {
             const itensParaComprar = window.insumosDados.filter(item => item.atual <= item.minimo);
 
@@ -252,7 +269,7 @@
             }
 
             if(filtrados.length === 0) {
-                return window.mostrarAviso("⚠️ Nenhum item crítico encontrado para este fornecedor.", "aviso");
+                return window.mostrarAviso("⚠️ Nenhum item crítico encontrado.", "aviso");
             }
 
             let msg = `*📋 SOLICITAÇÃO DE MERCADORIA - SEO PACHECO*\n\n`;
@@ -266,7 +283,6 @@
 
                 if(qtdDefinida > 0) {
                     itensIncluidos++;
-                    // ADICIONA O TÍTULO EM NEGRITO SE FOR MERCADO OU EMBALAGENS
                     if ((tipo === 'mercado' || tipo === 'embalagens') && i.categoria !== ultimaCategoria) {
                         msg += `\n*[${i.categoria.toUpperCase()}]*\n`;
                         ultimaCategoria = i.categoria;
@@ -288,7 +304,6 @@
             window.location.href = linkZap;
         };
 
-        // RENDERIZAR E FILTRAR OS DADOS NA TELA
         window.renderizarSistemas = function() {
             const termoBusca = document.getElementById('busca-produto').value.toLowerCase();
             
@@ -330,7 +345,6 @@
 
                 window.idsContagem.push(item.id);
 
-                // ABA 1: ESTOQUE
                 listaInsumos.innerHTML += `
                     <div class="card-item ${critico ? 'critico' : ''}">
                         <div class="card-main-row">
@@ -351,7 +365,7 @@
                         <div class="edit-panel" id="edit-panel-${item.id}" style="display:none;">
                             <div class="edit-grid" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 8px;">
                                 <div>
-                                    <label>Custo Unit. (R$)</label>
+                                    <label>Custo (R$)</label>
                                     <input type="number" step="0.01" id="edit-valor-${item.id}" value="${item.valor || 0}" style="margin-bottom:0;">
                                 </div>
                                 <div>
@@ -363,17 +377,19 @@
                                     <input type="date" id="edit-validade-${item.id}" value="${item.validade ? item.validade.substring(0,10) : ''}" style="margin-bottom:0;">
                                 </div>
                             </div>
-                            <button class="btn-save-edit" id="btn-salvar-${item.id}" onclick="window.salvarPrecoValidade('${item.id}')">SALVAR ALTERAÇÕES</button>
+                            
+                            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                                <button class="btn-save-edit" id="btn-salvar-${item.id}" onclick="window.salvarPrecoValidade('${item.id}')" style="flex: 2;">SALVAR ALTERAÇÕES</button>
+                                <button class="btn-delete-edit" id="btn-apagar-${item.id}" onclick="window.apagarProduto('${item.id}')" style="flex: 1;">🗑️ APAGAR</button>
+                            </div>
                         </div>
                     </div>
                 `;
 
-                // ABA 2: COMPRAS (COLHEITA DE ITENS CRÍTICOS)
                 if(critico) {
                     itensParaComprar.push(item);
                 }
 
-                // ABA 3: CONTAGEM
                 listaContagem.innerHTML += `
                     <div class="card-item contagem-card ${critico ? 'critico' : ''}">
                         <div class="info" style="flex: 1;">
@@ -387,7 +403,6 @@
                 `;
             });
 
-            // LÓGICA DE AGRUPAMENTO POR CATEGORIA NA ABA DE COMPRAS
             const comprasPorCategoria = {};
             itensParaComprar.forEach(item => {
                 if (!comprasPorCategoria[item.categoria]) {
@@ -396,7 +411,6 @@
                 comprasPorCategoria[item.categoria].push(item);
             });
 
-            // DICIONÁRIO DE CONFIGURAÇÃO VISUAL E DE PARÂMETROS DOS BOTÕES
             const mapeamentoBotoes = {
                 'Deck': { tipo: 'deck', texto: '🔥 Pedir no Deck', cor: '#fb8c00' },
                 'Mercado': { tipo: 'mercado', texto: '🛒 Pedir Mercado', cor: '#2e7d32' },
@@ -412,7 +426,6 @@
                 'Embalagens': { tipo: 'embalagens', texto: '📦 Pedir Embalagens', cor: '#7c3aed' }
             };
 
-            // RENDERIZAÇÃO DOS ITENS COM BOTÕES ACOPLADOS DIRETAMENTE NOS CABEÇALHOS
             for (const categoria in comprasPorCategoria) {
                 const configBotao = mapeamentoBotoes[categoria] || { tipo: categoria.toLowerCase(), texto: '💬 Enviar Pedido', cor: '#64748b' };
 
@@ -457,7 +470,6 @@
         :root { --laranja: #fb8c00; --laranja-escuro: #e65100; --vermelho: #d32f2f; --azul: #0284c7; --fundo: #f1f5f9; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--fundo); margin: 0; padding-bottom: 50px; color: #1e293b; }
         
-        /* CONTAINER DE TOASTS PREMIUM */
         #toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 100000; width: 90%; max-width: 400px; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
         .toast { background: white; padding: 15px 20px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.12); font-weight: bold; font-size: 13px; color: #1e293b; pointer-events: auto; transform: translateY(-30px); opacity: 0; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.25); border-left: 6px solid var(--azul); display: flex; align-items: center; }
         .toast.show { transform: translateY(0); opacity: 1; }
@@ -465,7 +477,6 @@
         .toast.erro { border-left-color: var(--vermelho); }
         .toast.aviso { border-left-color: var(--laranja); }
 
-        /* LOGIN SCREEN */
         #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); display: flex; align-items: center; justify-content: center; z-index: 99999; padding: 20px; box-sizing: border-box; }
         .login-card { background: white; padding: 35px 25px; border-radius: 25px; box-shadow: 0 15px 35px rgba(0,0,0,0.08); width: 100%; max-width: 360px; text-align: center; border-top: 6px solid var(--laranja); }
         .login-brand { font-size: 11px; font-weight: 900; color: var(--laranja); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 5px; }
@@ -496,11 +507,9 @@
         
         .btn-add { background: var(--laranja); color: white; border: none; width: 100%; padding: 16px; border-radius: 15px; font-weight: 900; cursor: pointer; }
 
-        /* Estrutura de Linhas dos Cards */
         .card-item { background: white; padding: 15px; border-radius: 15px; margin-bottom: 10px; display: flex; flex-direction: column; border-left: 6px solid #e2e8f0; transition: all 0.2s ease; }
         .card-main-row { display: flex; justify-content: space-between; align-items: center; width: 100%; }
         
-        /* CARD CRÍTICO TOTALMENTE VERMELHO */
         .card-item.critico { background: var(--vermelho) !important; color: white !important; border-left-color: #7f1d1d !important; }
         .card-item.critico .nome { color: white !important; }
         .card-item.critico .detalhe { color: #fecaca !important; }
@@ -523,7 +532,6 @@
         .btn-edit-inline { background: #e0f2fe !important; color: var(--azul) !important; border-color: #bae6fd !important; font-size: 13px !important; padding: 10px 14px !important; }
         .card-item.critico .btn-edit-inline { background: rgba(255, 255, 255, 0.25) !important; color: white !important; border: none !important; }
 
-        /* MINI PAINEL DE EDIÇÃO EMBUTIDO NO CARD */
         .edit-panel { margin-top: 12px; padding-top: 12px; border-top: 1px dashed #e2e8f0; width: 100%; }
         .card-item.critico .edit-panel { border-top-color: rgba(255, 255, 255, 0.3); }
         .edit-grid { display: flex; gap: 10px; }
@@ -532,8 +540,13 @@
         .card-item.critico .edit-grid label { color: #fecaca; }
         .edit-grid input { padding: 8px; margin: 4px 0 8px; border-radius: 8px; font-size: 13px; background: #f8fafc; }
         .card-item.critico .edit-grid input { background: white; color: #1e293b; border-color: transparent; }
-        .btn-save-edit { background: var(--azul); color: white; border: none; width: 100%; padding: 10px; border-radius: 10px; font-weight: bold; font-size: 11px; cursor: pointer; letter-spacing: 0.5px; }
-        .card-item.critico .btn-save-edit { background: white; color: var(--vermelho); }
+        
+        .btn-save-edit { background: var(--azul); color: white; border: none; padding: 10px; border-radius: 10px; font-weight: bold; font-size: 11px; cursor: pointer; letter-spacing: 0.5px; }
+        .card-item.critico .btn-save-edit { background: white; color: var(--azul); }
+
+        /* ESTILO DO BOTÃO DE APAGAR */
+        .btn-delete-edit { background: #fef2f2; color: var(--vermelho); border: 1px solid #fca5a5; padding: 10px; border-radius: 10px; font-weight: bold; font-size: 11px; cursor: pointer; letter-spacing: 0.5px; }
+        .card-item.critico .btn-delete-edit { background: rgba(255, 0, 0, 0.2); color: white; border: none; }
 
         .controles-contagem input { width: 80px; text-align: center; margin: 0; padding: 10px; font-weight: bold; background: #f1f5f9; border: none; border-radius: 8px; }
         
