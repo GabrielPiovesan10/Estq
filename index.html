@@ -18,6 +18,7 @@
 
         window.insumosDados = []; 
         window.idsContagem = []; 
+        let idProdutoParaApagar = null; // Variável para o modal customizado
 
         async function gerarHash(string) {
             const msgBuffer = new TextEncoder().encode(string);
@@ -186,12 +187,28 @@
         };
 
         // =================================================================
-        // NOVA FUNÇÃO: APAGAR PRODUTO
+        // LÓGICA DO NOVO MODAL CUSTOMIZADO PARA APAGAR PRODUTO
         // =================================================================
-        window.apagarProduto = async function(id) {
-            // Confirmação de segurança para não apagar sem querer
-            const confirmacao = confirm("⚠️ Tem certeza que deseja apagar este produto permanentemente do estoque?");
-            if (!confirmacao) return;
+        window.abrirModalApagar = function(id) {
+            idProdutoParaApagar = id;
+            const modal = document.getElementById('modal-confirmacao');
+            modal.style.display = 'flex';
+            setTimeout(() => { modal.classList.add('show'); }, 10);
+        };
+
+        window.fecharModal = function() {
+            const modal = document.getElementById('modal-confirmacao');
+            modal.classList.remove('show');
+            setTimeout(() => { modal.style.display = 'none'; }, 300);
+            idProdutoParaApagar = null;
+        };
+
+        window.confirmarApagarProduto = async function() {
+            if (!idProdutoParaApagar) return;
+            const id = idProdutoParaApagar;
+            
+            // Fecha o modal na hora
+            window.fecharModal();
 
             const btn = document.getElementById(`btn-apagar-${id}`);
             if(btn) btn.innerHTML = "⏳ Apagando...";
@@ -205,14 +222,13 @@
                 await fetch(URL_PLANILHA, {
                     method: 'POST',
                     mode: 'no-cors',
-                    // Envia a ação 'delete' para o seu Apps Script
                     body: JSON.stringify({ action: 'delete', id: id })
                 });
                 window.mostrarAviso("🗑️ Produto apagado com sucesso!", "sucesso");
             } catch (e) {
                 console.error(e);
                 window.mostrarAviso("❌ Erro ao apagar produto no banco.", "erro");
-                window.carregarDados(); // Recarrega os dados para garantir consistência em caso de erro
+                window.carregarDados(); 
             }
         };
 
@@ -380,7 +396,7 @@
                             
                             <div style="display: flex; gap: 10px; margin-top: 10px;">
                                 <button class="btn-save-edit" id="btn-salvar-${item.id}" onclick="window.salvarPrecoValidade('${item.id}')" style="flex: 2;">SALVAR ALTERAÇÕES</button>
-                                <button class="btn-delete-edit" id="btn-apagar-${item.id}" onclick="window.apagarProduto('${item.id}')" style="flex: 1;">🗑️ APAGAR</button>
+                                <button class="btn-delete-edit" id="btn-apagar-${item.id}" onclick="window.abrirModalApagar('${item.id}')" style="flex: 1;">🗑️ APAGAR</button>
                             </div>
                         </div>
                     </div>
@@ -544,7 +560,6 @@
         .btn-save-edit { background: var(--azul); color: white; border: none; padding: 10px; border-radius: 10px; font-weight: bold; font-size: 11px; cursor: pointer; letter-spacing: 0.5px; }
         .card-item.critico .btn-save-edit { background: white; color: var(--azul); }
 
-        /* ESTILO DO BOTÃO DE APAGAR */
         .btn-delete-edit { background: #fef2f2; color: var(--vermelho); border: 1px solid #fca5a5; padding: 10px; border-radius: 10px; font-weight: bold; font-size: 11px; cursor: pointer; letter-spacing: 0.5px; }
         .card-item.critico .btn-delete-edit { background: rgba(255, 0, 0, 0.2); color: white; border: none; }
 
@@ -553,9 +568,60 @@
         .aba-content { display: none; }
         .aba-content.active { display: block; animation: fadeIn 0.4s ease; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* =================================================================
+           ESTILOS DO NOVO MODAL CUSTOMIZADO (SUBSTITUI O ALERTA FEIO)
+        ================================================================= */
+        .modal-overlay { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(15, 23, 42, 0.7); 
+            display: none; align-items: center; justify-content: center; 
+            z-index: 100001; opacity: 0; transition: opacity 0.3s ease; 
+            padding: 20px; box-sizing: border-box; backdrop-filter: blur(3px); 
+        }
+        .modal-overlay.show { opacity: 1; }
+        .modal-card { 
+            background: white; width: 100%; max-width: 320px; 
+            border-radius: 24px; padding: 30px 20px; text-align: center; 
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2); 
+            transform: translateY(20px); transition: transform 0.3s ease; 
+        }
+        .modal-overlay.show .modal-card { transform: translateY(0); }
+        
+        .modal-icon { font-size: 45px; margin-bottom: 15px; }
+        .modal-title { font-size: 20px; font-weight: bold; color: #1e293b; margin: 0 0 10px 0; }
+        .modal-text { font-size: 14px; color: #64748b; margin-bottom: 25px; line-height: 1.5; }
+        
+        .modal-buttons { display: flex; gap: 10px; }
+        .btn-modal-cancel { 
+            flex: 1; background: #f1f5f9; color: #64748b; border: none; 
+            padding: 14px; border-radius: 12px; font-weight: bold; 
+            cursor: pointer; font-size: 12px; transition: background 0.2s;
+        }
+        .btn-modal-cancel:hover { background: #e2e8f0; }
+        
+        .btn-modal-delete { 
+            flex: 1; background: var(--vermelho); color: white; border: none; 
+            padding: 14px; border-radius: 12px; font-weight: bold; 
+            cursor: pointer; font-size: 12px; box-shadow: 0 4px 12px rgba(211, 47, 47, 0.3);
+            transition: background 0.2s;
+        }
+        .btn-modal-delete:hover { background: #b91c1c; }
     </style>
 </head>
 <body>
+
+    <div id="modal-confirmacao" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-icon">⚠️</div>
+            <h3 class="modal-title">Apagar Produto?</h3>
+            <p class="modal-text">Tem certeza que deseja apagar este produto permanentemente do estoque? Esta ação não poderá ser desfeita.</p>
+            <div class="modal-buttons">
+                <button class="btn-modal-cancel" onclick="window.fecharModal()">CANCELAR</button>
+                <button class="btn-modal-delete" onclick="window.confirmarApagarProduto()">SIM, APAGAR</button>
+            </div>
+        </div>
+    </div>
 
     <div id="toast-container"></div>
 
