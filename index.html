@@ -157,6 +157,7 @@
         };
 
         window.salvarPrecoValidade = async function(id) {
+            const novoNome = document.getElementById(`edit-nome-${id}`).value;
             const novoValor = Number(document.getElementById(`edit-valor-${id}`).value);
             const novoMinimo = Number(document.getElementById(`edit-minimo-${id}`).value);
             const novaValidade = document.getElementById(`edit-validade-${id}`).value;
@@ -167,6 +168,7 @@
             
             const index = window.insumosDados.findIndex(item => item.id === id);
             if(index !== -1) {
+                window.insumosDados[index].nome = novoNome;
                 window.insumosDados[index].valor = novoValor;
                 window.insumosDados[index].minimo = novoMinimo;
                 window.insumosDados[index].validade = novaValidade;
@@ -177,7 +179,7 @@
                 await fetch(URL_PLANILHA, {
                     method: 'POST',
                     mode: 'no-cors',
-                    body: JSON.stringify({ action: 'update', id, valor: novoValor, minimo: novoMinimo, validade: novaValidade })
+                    body: JSON.stringify({ action: 'update', id, nome: novoNome, valor: novoValor, minimo: novoMinimo, validade: novaValidade })
                 });
                 window.mostrarAviso("✏️ Dados atualizados com sucesso!", "sucesso");
             } catch (e) {
@@ -379,6 +381,12 @@
                         </div>
                         
                         <div class="edit-panel" id="edit-panel-${item.id}" style="display:none;">
+                            <div class="edit-grid" style="margin-bottom: 8px;">
+                                <div style="width: 100%;">
+                                    <label>Nome do Produto</label>
+                                    <input type="text" id="edit-nome-${item.id}" value="${item.nome}" style="margin-bottom: 8px; box-sizing: border-box; width: 100%;">
+                                </div>
+                            </div>
                             <div class="edit-grid" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 8px;">
                                 <div>
                                     <label>Custo (R$)</label>
