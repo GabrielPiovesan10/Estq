@@ -158,6 +158,7 @@
 
         window.salvarPrecoValidade = async function(id) {
             const novoNome = document.getElementById(`edit-nome-${id}`).value;
+            const novaCategoria = document.getElementById(`edit-categoria-${id}`).value;
             const novoValor = Number(document.getElementById(`edit-valor-${id}`).value);
             const novoMinimo = Number(document.getElementById(`edit-minimo-${id}`).value);
             const novaValidade = document.getElementById(`edit-validade-${id}`).value;
@@ -169,6 +170,7 @@
             const index = window.insumosDados.findIndex(item => item.id === id);
             if(index !== -1) {
                 window.insumosDados[index].nome = novoNome;
+                window.insumosDados[index].categoria = novaCategoria;
                 window.insumosDados[index].valor = novoValor;
                 window.insumosDados[index].minimo = novoMinimo;
                 window.insumosDados[index].validade = novaValidade;
@@ -179,7 +181,7 @@
                 await fetch(URL_PLANILHA, {
                     method: 'POST',
                     mode: 'no-cors',
-                    body: JSON.stringify({ action: 'update', id, nome: novoNome, valor: novoValor, minimo: novoMinimo, validade: novaValidade })
+                    body: JSON.stringify({ action: 'update', id, nome: novoNome, categoria: novaCategoria, valor: novoValor, minimo: novoMinimo, validade: novaValidade })
                 });
                 window.mostrarAviso("✏️ Dados atualizados com sucesso!", "sucesso");
             } catch (e) {
@@ -381,10 +383,27 @@
                         </div>
                         
                         <div class="edit-panel" id="edit-panel-${item.id}" style="display:none;">
-                            <div class="edit-grid" style="margin-bottom: 8px;">
-                                <div style="width: 100%;">
+                            <div class="edit-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+                                <div>
                                     <label>Nome do Produto</label>
-                                    <input type="text" id="edit-nome-${item.id}" value="${item.nome}" style="margin-bottom: 8px; box-sizing: border-box; width: 100%;">
+                                    <input type="text" id="edit-nome-${item.id}" value="${item.nome}" style="margin-bottom: 0;">
+                                </div>
+                                <div>
+                                    <label>Categoria/Fornecedor</label>
+                                    <select id="edit-categoria-${item.id}" style="margin-bottom: 0;">
+                                        <option value="Deck" ${item.categoria === 'Deck' ? 'selected' : ''}>Deck</option>
+                                        <option value="Mercado" ${item.categoria === 'Mercado' ? 'selected' : ''}>Mercado</option>
+                                        <option value="Legumes" ${item.categoria === 'Legumes' ? 'selected' : ''}>Legumes</option>
+                                        <option value="Chico" ${item.categoria === 'Chico' ? 'selected' : ''}>ChicoFrios</option>
+                                        <option value="Embalagens" ${item.categoria === 'Embalagens' ? 'selected' : ''}>Embalagens</option>
+                                        <option value="Material de Limpeza" ${item.categoria === 'Material de Limpeza' ? 'selected' : ''}>Material de Limpeza</option>
+                                        <option value="Ambev" ${item.categoria === 'Ambev' ? 'selected' : ''}>Ambev</option>
+                                        <option value="Lago Azul" ${item.categoria === 'Lago Azul' ? 'selected' : ''}>Lago Azul</option>
+                                        <option value="Coca-Cola" ${item.categoria === 'Coca-Cola' ? 'selected' : ''}>Coca-Cola</option>
+                                        <option value="Ifish" ${item.categoria === 'Ifish' ? 'selected' : ''}>Ifish</option>
+                                        <option value="Piracicaba" ${item.categoria === 'Piracicaba' ? 'selected' : ''}>Piracicaba</option>
+                                        <option value="Verduras" ${item.categoria === 'Verduras' ? 'selected' : ''}>Verduras</option>
+                                    </select>
                                 </div>
                             </div>
                             <div class="edit-grid" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 8px;">
@@ -562,8 +581,8 @@
         .edit-grid > div { flex: 1; }
         .edit-grid label { font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; }
         .card-item.critico .edit-grid label { color: #fecaca; }
-        .edit-grid input { padding: 8px; margin: 4px 0 8px; border-radius: 8px; font-size: 13px; background: #f8fafc; }
-        .card-item.critico .edit-grid input { background: white; color: #1e293b; border-color: transparent; }
+        .edit-grid input, .edit-grid select { padding: 8px; margin: 4px 0 8px; border-radius: 8px; font-size: 13px; background: #f8fafc; border: 1px solid #e2e8f0; width: 100%; box-sizing: border-box; outline: none; }
+        .card-item.critico .edit-grid input, .card-item.critico .edit-grid select { background: white; color: #1e293b; border-color: transparent; }
         
         .btn-save-edit { background: var(--azul); color: white; border: none; padding: 10px; border-radius: 10px; font-weight: bold; font-size: 11px; cursor: pointer; letter-spacing: 0.5px; }
         .card-item.critico .btn-save-edit { background: white; color: var(--azul); }
